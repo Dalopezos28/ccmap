@@ -1,0 +1,27 @@
+# Django y Base de Datos
+Django==4.2.7
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+
+# Django REST Framework
+djangorestframework==3.14.0
+djangorestframework-gis==1.0
+
+# CORS
+django-cors-headers==4.3.1
+
+# Archivos estáticos
+whitenoise==6.6.0
+
+# Imágenes
+Pillow==10.1.0
+
+# Utilidades
+python-decouple==3.8
+
+# Desarrollo y Testing (opcionales)
+# django-debug-toolbar==4.2.0
+# pytest==7.4.3
+# pytest-django==4.7.0
+# coverage==7.3.2
+

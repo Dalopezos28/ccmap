@@ -1,0 +1,165 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║         🍽️  COMEDORES COMUNITARIOS CALI  🗺️                 ║
+║              Aplicación Web Interactiva                      ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+📋 INICIO RÁPIDO - 5 PASOS
+══════════════════════════════════════════════════════════════
+
+🔧 OPCIÓN 1: Instalación Automática (Recomendado)
+──────────────────────────────────────────────────
+
+Windows:
+  1. Doble clic en: setup.bat
+  2. Seguir las instrucciones
+  3. ¡Listo!
+
+Linux/macOS:
+  1. Abrir terminal en el directorio del proyecto
+  2. Ejecutar: bash setup.sh
+  3. ¡Listo!
+
+
+📝 OPCIÓN 2: Instalación Manual
+──────────────────────────────────────────────────
+
+PASO 1: Crear y activar entorno virtual
+  Windows:
+    python -m venv venv
+    venv\Scripts\activate
+
+  Linux/macOS:
+    python3 -m venv venv
+    source venv/bin/activate
+
+PASO 2: Instalar dependencias
+  pip install -r requirements.txt
+
+PASO 3: Aplicar migraciones
+  python manage.py migrate
+
+PASO 4: Crear superusuario
+  python manage.py createsuperuser
+  
+  Usuario sugerido: admin
+  Email: admin@comedores.com
+  Contraseña: (elige una segura)
+
+PASO 5: Poblar datos de ejemplo
+  python manage.py poblar_comedores
+  
+  Cuando pregunte, escribe: s
+
+PASO 6: Iniciar servidor
+  python manage.py runserver
+
+
+🌐 ACCEDER A LA APLICACIÓN
+──────────────────────────────────────────────────
+
+Mapa Principal:
+  🔗 http://localhost:8000
+
+Panel de Administración:
+  🔗 http://localhost:8000/admin
+  👤 Usuario: (el que creaste)
+  🔑 Contraseña: (la que creaste)
+
+API REST:
+  🔗 http://localhost:8000/api/comedores/
+  🔗 http://localhost:8000/api/comedores/geojson/
+  🔗 http://localhost:8000/api/menus/
+
+
+✨ CARACTERÍSTICAS PRINCIPALES
+──────────────────────────────────────────────────
+
+🗺️  Mapa interactivo con Leaflet.js
+📍  15 comedores de ejemplo en Cali
+🎯  Marcadores con colores según estado
+🔍  Sistema de filtros avanzados
+📱  Geolocalización
+🍽️  Menú del día actualizado
+⭐  Calificaciones y comentarios
+🎮  Diseño tipo videojuego
+📊  Panel admin completo
+
+
+🎨 FUNCIONALIDADES DEL MAPA
+──────────────────────────────────────────────────
+
+• Clic en marcador → Ver detalles del comedor
+• Botón "Filtros" → Filtrar comedores
+• Botón "Mi Ubicación" → Encontrar comedores cercanos
+• En modal: "Cómo Llegar" → Direcciones en Google Maps
+
+
+🛠️ PANEL DE ADMINISTRACIÓN
+──────────────────────────────────────────────────
+
+Desde http://localhost:8000/admin puedes:
+
+✓ Agregar nuevos comedores
+✓ Editar información existente
+✓ Usar mapa para ubicar comedores
+✓ Gestionar menús diarios
+✓ Moderar comentarios
+✓ Ver estadísticas
+
+
+🐛 PROBLEMAS COMUNES
+──────────────────────────────────────────────────
+
+❌ Error: "No module named 'django'"
+  Solución: Activa el entorno virtual
+    Windows: venv\Scripts\activate
+    Linux/macOS: source venv/bin/activate
+
+❌ Error: "GDAL is not installed"
+  Solución: Comentar djangorestframework-gis en requirements.txt
+  
+❌ Error: "PostGIS extension not found"
+  Solución: En PostgreSQL ejecutar:
+    CREATE EXTENSION postgis;
+
+❌ Error de conexión a base de datos
+  Solución: Verificar credenciales en archivo .env
+
+
+📚 MÁS INFORMACIÓN
+──────────────────────────────────────────────────
+
+📖 README.md → Documentación completa
+📝 INSTALACION_RAPIDA.md → Guía paso a paso
+✅ VERIFICACION.md → Lista de verificación
+📋 CHANGELOG.md → Historial de cambios
+📄 notas_desarrollo.txt → Notas técnicas
+
+
+💡 CONSEJOS
+──────────────────────────────────────────────────
+
+1. Siempre activa el entorno virtual antes de trabajar
+2. Usa el panel admin para gestionar contenido
+3. Explora la API en /api/comedores/
+4. Personaliza colores en static/css/styles.css
+5. Lee README.md para funciones avanzadas
+
+
+🤝 SOPORTE
+──────────────────────────────────────────────────
+
+¿Problemas? Consulta:
+• INSTALACION_RAPIDA.md → Sección "Solución de Problemas"
+• README.md → Sección "Reporte de Bugs"
+• notas_desarrollo.txt → Información técnica
+
+
+═══════════════════════════════════════════════════════════════
+
+              ¡Disfruta mapeando comedores! 🍽️🗺️
+
+═══════════════════════════════════════════════════════════════
+

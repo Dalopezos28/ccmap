@@ -1,0 +1,30 @@
+{
+  "name": "Comedores Comunitarios Cali",
+  "short_name": "Comedores Cali",
+  "description": "Encuentra comedores comunitarios cerca de ti en Cali, Colombia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "social", "utilities"],
+  "lang": "es-CO",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false
+}
+

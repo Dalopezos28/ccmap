@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mapa de Comedores Comunitarios - Cali{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="header">
+    <div class="header-content">
+        <div class="logo">
+            <i class="fas fa-utensils"></i>
+            <h1>Comedores <span class="highlight">Cali</span></h1>
+        </div>
+        <div class="header-actions">
+            <button id="btn-emergencia" class="btn btn-danger-pulse" title="¿Necesitas comer HOY?">
+                <i class="fas fa-exclamation-circle"></i>
+                <span class="btn-text">¡Necesito Comer HOY!</span>
+            </button>
+            <button id="btn-mi-ubicacion" class="btn btn-primary" title="Mi ubicación">
+                <i class="fas fa-location-crosshairs"></i>
+                <span class="btn-text">Mi Ubicación</span>
+            </button>
+            <button id="btn-toggle-sidebar" class="btn btn-secondary" title="Filtros">
+                <i class="fas fa-filter"></i>
+                <span class="btn-text">Filtros</span>
+            </button>
+            <button id="btn-modo-simple" class="btn btn-info" title="Modo Simple">
+                <i class="fas fa-th-large"></i>
+                <span class="btn-text">Modo Simple</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Sidebar Filtros -->
+<aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+        <h2><i class="fas fa-sliders"></i> Filtros</h2>
+        <button id="btn-close-sidebar" class="btn-close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="sidebar-content">
+        <!-- Búsqueda -->
+        <div class="filter-group">
+            <label for="search-input">
+                <i class="fas fa-search"></i> Buscar
+            </label>
+            <input 
+                type="text" 
+                id="search-input" 
+                class="form-control" 
+                placeholder="Nombre o barrio..."
+                autocomplete="off"
+            >
+            <div id="search-suggestions" class="suggestions"></div>
+        </div>
+        
+        <!-- Estado -->
+        <div class="filter-group">
+            <label for="filter-estado">
+                <i class="fas fa-clock"></i> Estado
+            </label>
+            <select id="filter-estado" class="form-control">
+                <option value="todos">Todos</option>
+                <option value="abierto">Abiertos ahora</option>
+                <option value="cerrado">Cerrados</option>
+            </select>
+        </div>
+        
+        <!-- Tipo de comida -->
+        <div class="filter-group">
+            <label for="filter-tipo-comida">
+                <i class="fas fa-drumstick-bite"></i> Tipo de Comida
+            </label>
+            <select id="filter-tipo-comida" class="form-control">
+                <option value="">Todos los tipos</option>
+                <option value="CASERA">Comida Casera</option>
+                <option value="VEGETARIANA">Vegetariana</option>
+                <option value="VEGANA">Vegana</option>
+                <option value="MIXTA">Mixta</option>
+                <option value="TIPICA">Típica Colombiana</option>
+                <option value="INTERNACIONAL">Internacional</option>
+            </select>
+        </div>
+        
+        <!-- Calificación -->
+        <div class="filter-group">
+            <label for="filter-calificacion">
+                <i class="fas fa-star"></i> Calificación Mínima
+            </label>
+            <select id="filter-calificacion" class="form-control">
+                <option value="0">Todas</option>
+                <option value="3">3+ estrellas</option>
+                <option value="4">4+ estrellas</option>
+                <option value="5">5 estrellas</option>
+            </select>
+        </div>
+        
+        <!-- Radio de búsqueda -->
+        <div class="filter-group">
+            <label for="filter-radio">
+                <i class="fas fa-compass"></i> Radio de búsqueda
+                <span id="radio-value">5 km</span>
+            </label>
+            <input 
+                type="range" 
+                id="filter-radio" 
+                class="form-range" 
+                min="1" 
+                max="20" 
+                value="5" 
+                step="1"
+            >
+        </div>
+        
+        <!-- Botones de acción -->
+        <div class="filter-actions">
+            <button id="btn-aplicar-filtros" class="btn btn-success btn-block">
+                <i class="fas fa-check"></i> Aplicar Filtros
+            </button>
+            <button id="btn-limpiar-filtros" class="btn btn-outline btn-block">
+                <i class="fas fa-redo"></i> Limpiar
+            </button>
+        </div>
+        
+        <!-- Estadísticas -->
+        <div class="stats-box">
+            <h3><i class="fas fa-chart-bar"></i> Estadísticas</h3>
+            <div class="stat-item">
+                <span class="stat-label">Total comedores:</span>
+                <span class="stat-value" id="stat-total">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Abiertos ahora:</span>
+                <span class="stat-value stat-success" id="stat-abiertos">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">En el mapa:</span>
+                <span class="stat-value stat-info" id="stat-visibles">0</span>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<!-- Mapa -->
+<main class="main-content">
+    <div id="map" class="map"></div>
+    
+    <!-- Botón flotante de ayuda -->
+    <button id="btn-ayuda" class="btn-float btn-help" title="Ayuda">
+        <i class="fas fa-question"></i>
+    </button>
+</main>
+
+<!-- Modal de Comedor -->
+<div id="modal-comedor" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" id="btn-close-modal">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        <div class="modal-body">
+            <div class="loader-small" id="modal-loader">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            
+            <div id="modal-content-body" style="display: none;">
+                <!-- Imagen -->
+                <div class="modal-image" id="modal-image">
+                    <img src="" alt="" id="modal-foto">
+                    <div class="modal-badge" id="modal-estado-badge"></div>
+                    <div class="modal-badge modal-badge-precio" id="modal-precio-badge"></div>
+                    <div class="modal-badge modal-badge-cupos" id="modal-cupos-badge"></div>
+                </div>
+                
+                <!-- Información -->
+                <div class="modal-info">
+                    <h2 id="modal-nombre"></h2>
+                    <div class="modal-rating" id="modal-rating"></div>
+                    
+                    <!-- Detalles -->
+                    <div class="modal-details">
+                        <div class="detail-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <strong>Dirección</strong>
+                                <p id="modal-direccion"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <strong>Horario</strong>
+                                <p id="modal-horario"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-item" id="detail-telefono" style="display: none;">
+                            <i class="fas fa-phone"></i>
+                            <div>
+                                <strong>Teléfono</strong>
+                                <p id="modal-telefono"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-item">
+                            <i class="fas fa-utensils"></i>
+                            <div>
+                                <strong>Tipo de Comida</strong>
+                                <p id="modal-tipo-comida"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-item" id="detail-descripcion" style="display: none;">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                                <strong>Descripción</strong>
+                                <p id="modal-descripcion"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Menú del día -->
+                    <div class="modal-menu" id="modal-menu-container" style="display: none;">
+                        <h3><i class="fas fa-calendar-day"></i> Menú del Día</h3>
+                        <div id="modal-menu"></div>
+                    </div>
+                    
+                    <!-- Comentarios recientes -->
+                    <div class="modal-comentarios" id="modal-comentarios-container" style="display: none;">
+                        <h3><i class="fas fa-comments"></i> Comentarios Recientes</h3>
+                        <div id="modal-comentarios"></div>
+                    </div>
+                    
+                    <!-- Botones de acción prioritarios -->
+                    <div class="modal-actions-priority">
+                        <a id="btn-llamar" class="btn btn-call btn-block" href="tel:">
+                            <i class="fas fa-phone-alt"></i> LLAMAR AHORA
+                        </a>
+                        <a id="btn-whatsapp" class="btn btn-whatsapp btn-block" target="_blank" rel="noopener" style="display: none;">
+                            <i class="fab fa-whatsapp"></i> WhatsApp
+                        </a>
+                    </div>
+                    
+                    <!-- Información de cupos y disponibilidad -->
+                    <div class="info-cupos" id="info-cupos" style="display: none;">
+                        <div class="cupos-header">
+                            <i class="fas fa-users"></i>
+                            <strong>Disponibilidad</strong>
+                        </div>
+                        <div class="cupos-content">
+                            <div class="cupos-item">
+                                <span>Cupos disponibles:</span>
+                                <span id="cupos-numero" class="cupos-valor"></span>
+                            </div>
+                            <div class="cupos-item" id="cola-info" style="display: none;">
+                                <span>Tiempo de espera:</span>
+                                <span id="cola-tiempo" class="cupos-valor"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Transporte público -->
+                    <div class="info-transporte" id="info-transporte" style="display: none;">
+                        <h3><i class="fas fa-bus"></i> Cómo Llegar en Transporte Público</h3>
+                        <div class="transporte-content">
+                            <div class="transporte-item">
+                                <i class="fas fa-route"></i>
+                                <div>
+                                    <strong>Rutas disponibles</strong>
+                                    <p id="transporte-rutas"></p>
+                                </div>
+                            </div>
+                            <div class="transporte-item" id="parada-info" style="display: none;">
+                                <i class="fas fa-map-pin"></i>
+                                <div>
+                                    <strong>Parada más cercana</strong>
+                                    <p id="transporte-parada"></p>
+                                    <small id="transporte-distancia"></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Servicios y accesibilidad -->
+                    <div class="info-servicios" id="info-servicios">
+                        <h3><i class="fas fa-check-circle"></i> Servicios Disponibles</h3>
+                        <div class="servicios-grid" id="servicios-grid"></div>
+                    </div>
+                    
+                    <!-- Acciones -->
+                    <div class="modal-actions">
+                        <a id="btn-como-llegar" class="btn btn-primary" target="_blank" rel="noopener">
+                            <i class="fas fa-directions"></i> Cómo Llegar
+                        </a>
+                        <button id="btn-compartir" class="btn btn-outline">
+                            <i class="fas fa-share-alt"></i> Compartir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Ayuda -->
+<div id="modal-ayuda" class="modal">
+    <div class="modal-content modal-small">
+        <button class="modal-close" onclick="cerrarModalAyuda()">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="modal-body">
+            <h2><i class="fas fa-question-circle"></i> Ayuda</h2>
+            <div class="ayuda-content">
+                <h3>¿Cómo usar el mapa?</h3>
+                <ul>
+                    <li><i class="fas fa-mouse-pointer"></i> Haz clic en un marcador para ver detalles</li>
+                    <li><i class="fas fa-search-location"></i> Usa los filtros para encontrar comedores específicos</li>
+                    <li><i class="fas fa-location-crosshairs"></i> Presiona "Mi Ubicación" para ver comedores cercanos</li>
+                    <li><i class="fas fa-exclamation-circle"></i> Botón rojo "¡Necesito Comer HOY!" muestra comedores disponibles ahora</li>
+                    <li><i class="fas fa-phone"></i> Botón "LLAMAR AHORA" para contacto directo</li>
+                </ul>
+                
+                <h3>Leyenda de Marcadores</h3>
+                <div class="leyenda">
+                    <div class="leyenda-item">
+                        <span class="marker-dot marker-open"></span> Abierto ahora con cupos
+                    </div>
+                    <div class="leyenda-item">
+                        <span class="marker-dot marker-closed"></span> Cerrado
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Modo Simple -->
+<div id="modal-simple" class="modal">
+    <div class="modal-content modal-simple">
+        <button class="modal-close" onclick="cerrarModoSimple()">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="modal-body">
+            <h2 class="simple-title"><i class="fas fa-list"></i> Comedores Cercanos</h2>
+            <div id="lista-simple" class="lista-simple">
+                <!-- Se llenará con JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuración global
+    window.CALI_CENTER = {lat: 3.4516, lng: -76.5320};
+    window.API_BASE_URL = '/api';
+</script>
+{% endblock %}
+
