@@ -4,7 +4,8 @@
       "Bash(python manage.py:*)",
       "Bash(source venv/bin/activate)",
       "Bash(venv/Scripts/python.exe manage.py:*)",
-      "Bash(venv/Scripts/python.exe:*)"
+      "Bash(venv/Scripts/python.exe:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
