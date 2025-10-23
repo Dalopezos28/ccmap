@@ -5,7 +5,8 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db.models import Q, Avg
+from django.db.models import Q, Avg, Count, Sum
+from django.shortcuts import render
 from math import radians, cos, sin, asin, sqrt
 from .models import Comedor, MenuDiario, Comentario, Favorito
 from .serializers import (
@@ -187,9 +188,161 @@ class ComedorViewSet(viewsets.ModelViewSet):
             distancia = haversine(lat, lng, comedor.latitud, comedor.longitud)
             if distancia <= radio:
                 comedores_cercanos.append(comedor)
-        
+
         serializer = self.get_serializer(comedores_cercanos, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def network_graph(self, request):
+        """
+        Endpoint que retorna datos para el network graph
+        Agrupa comedores por barrio y genera nodos y enlaces
+        """
+        # Agrupar por barrio/comuna
+        barrios = Comedor.objects.filter(estado_activo=True).values('barrio').annotate(
+            total_comedores=Count('id'),
+            total_cupos=Sum('cupos_disponibles'),
+            total_capacidad=Sum('capacidad_personas'),
+            promedio_cupos=Avg('cupos_disponibles')
+        ).order_by('-total_cupos')
+
+        # Crear nodos (barrios)
+        nodes = []
+        node_id_map = {}
+
+        for idx, barrio in enumerate(barrios):
+            node_id = f"barrio_{idx}"
+            node_id_map[barrio['barrio']] = node_id
+
+            # Categorizar por tamaño de cupos
+            if barrio['total_cupos'] >= 3000:
+                categoria = 'muy_alto'
+                color = '#e74c3c'  # Rojo
+                size = 30
+            elif barrio['total_cupos'] >= 2000:
+                categoria = 'alto'
+                color = '#e67e22'  # Naranja
+                size = 25
+            elif barrio['total_cupos'] >= 1000:
+                categoria = 'medio'
+                color = '#f39c12'  # Amarillo
+                size = 20
+            elif barrio['total_cupos'] >= 500:
+                categoria = 'bajo'
+                color = '#3498db'  # Azul
+                size = 15
+            else:
+                categoria = 'muy_bajo'
+                color = '#95a5a6'  # Gris
+                size = 10
+
+            nodes.append({
+                'id': node_id,
+                'label': barrio['barrio'],
+                'type': 'barrio',
+                'categoria': categoria,
+                'total_comedores': barrio['total_comedores'],
+                'total_cupos': barrio['total_cupos'],
+                'total_capacidad': barrio['total_capacidad'],
+                'promedio_cupos': round(barrio['promedio_cupos'], 1),
+                'color': color,
+                'size': size,
+                'x': None,  # Se calculará en frontend
+                'y': None
+            })
+
+        # Crear enlaces entre barrios basados en proximidad de cupos
+        links = []
+        barrios_list = list(barrios)
+
+        for i, barrio1 in enumerate(barrios_list):
+            for j, barrio2 in enumerate(barrios_list):
+                if i < j:  # Evitar duplicados
+                    # Conectar barrios con cupos similares
+                    diff_cupos = abs(barrio1['total_cupos'] - barrio2['total_cupos'])
+
+                    # Si la diferencia es menor al 50% del mayor, crear enlace
+                    max_cupos = max(barrio1['total_cupos'], barrio2['total_cupos'])
+                    if diff_cupos < (max_cupos * 0.5):
+                        strength = 1 - (diff_cupos / max_cupos)
+
+                        links.append({
+                            'source': node_id_map[barrio1['barrio']],
+                            'target': node_id_map[barrio2['barrio']],
+                            'value': strength,
+                            'tipo': 'similitud_cupos'
+                        })
+
+        # Agregar nodos de comedores individuales para los top 20
+        top_comedores = Comedor.objects.filter(estado_activo=True).order_by('-cupos_disponibles')[:20]
+
+        for comedor in top_comedores:
+            node_id = f"comedor_{comedor.id}"
+
+            # Color por tipo de comida
+            color_map = {
+                'CASERA': '#2ecc71',
+                'VEGETARIANA': '#27ae60',
+                'VEGANA': '#16a085',
+                'MIXTA': '#3498db',
+                'TIPICA': '#9b59b6',
+                'INTERNACIONAL': '#34495e'
+            }
+
+            nodes.append({
+                'id': node_id,
+                'label': comedor.nombre[:30] + '...' if len(comedor.nombre) > 30 else comedor.nombre,
+                'type': 'comedor',
+                'categoria': 'destacado',
+                'cupos': comedor.cupos_disponibles,
+                'capacidad': comedor.capacidad_personas,
+                'barrio': comedor.barrio,
+                'tipo_comida': comedor.tipo_comida,
+                'color': color_map.get(comedor.tipo_comida, '#95a5a6'),
+                'size': 8 + (comedor.cupos_disponibles / 20),  # Tamaño proporcional a cupos
+                'x': None,
+                'y': None
+            })
+
+            # Conectar comedor con su barrio
+            if comedor.barrio in node_id_map:
+                links.append({
+                    'source': node_id,
+                    'target': node_id_map[comedor.barrio],
+                    'value': comedor.cupos_disponibles / 100,
+                    'tipo': 'pertenece_a'
+                })
+
+        # Estadísticas globales
+        stats = {
+            'total_barrios': len(barrios),
+            'total_comedores_activos': Comedor.objects.filter(estado_activo=True).count(),
+            'total_cupos_sistema': sum(b['total_cupos'] for b in barrios),
+            'promedio_comedores_por_barrio': round(sum(b['total_comedores'] for b in barrios) / len(barrios), 1) if barrios else 0
+        }
+
+        return Response({
+            'nodes': nodes,
+            'links': links,
+            'stats': stats,
+            'leyenda': {
+                'categorias': [
+                    {'nombre': 'Muy Alto', 'color': '#e74c3c', 'rango': '3000+ cupos'},
+                    {'nombre': 'Alto', 'color': '#e67e22', 'rango': '2000-3000 cupos'},
+                    {'nombre': 'Medio', 'color': '#f39c12', 'rango': '1000-2000 cupos'},
+                    {'nombre': 'Bajo', 'color': '#3498db', 'rango': '500-1000 cupos'},
+                    {'nombre': 'Muy Bajo', 'color': '#95a5a6', 'rango': '<500 cupos'}
+                ],
+                'tipos_comida': [
+                    {'nombre': 'Casera', 'color': '#2ecc71'},
+                    {'nombre': 'Vegetariana', 'color': '#27ae60'},
+                    {'nombre': 'Vegana', 'color': '#16a085'},
+                    {'nombre': 'Mixta', 'color': '#3498db'},
+                    {'nombre': 'Típica', 'color': '#9b59b6'},
+                    {'nombre': 'Internacional', 'color': '#34495e'}
+                ]
+            }
+        })
 
 
 def haversine(lat1, lon1, lat2, lon2):

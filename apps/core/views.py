@@ -14,3 +14,15 @@ def mapa_view(request):
     }
     return render(request, 'mapa.html', context)
 
+
+def network_view(request):
+    """
+    Vista del network graph interactivo de comedores
+    Visualización estilo WEF Transformation Map
+    """
+    context = {
+        'page_title': 'Red de Comedores - Mapa de Transformación Social',
+        'meta_description': 'Explora la red de comedores comunitarios en Cali. Visualización interactiva por barrios y capacidad de atención.',
+    }
+    return render(request, 'network.html', context)
+

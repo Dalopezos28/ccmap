@@ -10,6 +10,7 @@ from apps.core import views as core_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', core_views.mapa_view, name='mapa'),
+    path('network/', core_views.network_view, name='network'),
     path('api/', include('apps.comedores.urls')),
 ]
 
