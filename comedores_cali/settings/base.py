@@ -79,22 +79,28 @@ WSGI_APPLICATION = 'comedores_cali.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 import dj_database_url
 
-# Configuración para PostgreSQL
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
-        conn_max_age=600,
-    )
-}
+# Configuración para PostgreSQL con Railway
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Fallback a SQLite si no hay DATABASE_URL
-if not os.environ.get('DATABASE_URL'):
+if DATABASE_URL:
+    # Usar PostgreSQL (Railway)
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    # Fallback a SQLite para desarrollo local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    import warnings
+    warnings.warn("No DATABASE_URL found - using SQLite for local development")
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
