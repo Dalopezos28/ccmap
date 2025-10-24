@@ -6,7 +6,8 @@
       "Bash(venv/Scripts/python.exe manage.py:*)",
       "Bash(venv/Scripts/python.exe:*)",
       "Bash(git add:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

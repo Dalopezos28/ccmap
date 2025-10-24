@@ -71,6 +71,24 @@ body {
     margin-top: 20px;
 }
 
+.loader-progress {
+    width: 300px;
+    height: 8px;
+    background: var(--dark-bg);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px auto;
+    border: 2px solid var(--primary-color);
+}
+
+.loader-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    width: 0%;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px var(--shadow-color);
+}
+
 @keyframes rotate {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -587,28 +605,51 @@ body {
 }
 
 /* ===== FLOATING BUTTONS ===== */
-.btn-float {
+.float-buttons-group {
     position: fixed;
     bottom: 30px;
     right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 800;
+}
+
+.btn-float {
     width: 56px;
     height: 56px;
     border-radius: 50%;
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 20px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-    z-index: 800;
     transition: var(--transition);
+    cursor: pointer;
 }
 
 .btn-float:hover {
     transform: scale(1.1) rotate(10deg);
 }
 
+.btn-float:focus {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
 .btn-help {
     background: linear-gradient(135deg, var(--secondary-color), #cc5528);
+    color: white;
+}
+
+.btn-contrast {
+    background: linear-gradient(135deg, #9c27b0, #673ab7);
+    color: white;
+}
+
+.btn-contrast:hover {
+    box-shadow: 0 8px 25px rgba(156, 39, 176, 0.5);
 }
 
 /* ===== MODAL ===== */
@@ -1358,9 +1399,36 @@ body {
     font-size: 1.5em !important;
 }
 
-/* Modo de alto contraste (para futuro) */
-.high-contrast {
+/* Modo de alto contraste */
+body.high-contrast {
+    --primary-color: #ffff00;
+    --secondary-color: #00ffff;
+    --success-color: #00ff00;
+    --danger-color: #ff0000;
+    --warning-color: #ffaa00;
+    --dark-bg: #000000;
+    --card-bg: #1a1a1a;
+    --sidebar-bg: #0a0a0a;
     --text-primary: #ffffff;
-    --text-secondary: #dddddd;
+    --text-secondary: #ffffff;
+    --shadow-color: rgba(255, 255, 0, 0.5);
+}
+
+body.high-contrast .btn {
+    border: 2px solid white;
+    font-weight: 700;
+}
+
+body.high-contrast .marker-icon,
+body.high-contrast .cluster-icon {
+    border: 3px solid white;
+}
+
+body.high-contrast a:focus,
+body.high-contrast button:focus,
+body.high-contrast input:focus,
+body.high-contrast select:focus {
+    outline: 4px solid var(--primary-color);
+    outline-offset: 2px;
 }
 

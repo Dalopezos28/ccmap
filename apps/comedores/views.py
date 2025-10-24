@@ -8,10 +8,11 @@ from django.utils import timezone
 from django.db.models import Q, Avg, Count, Sum
 from django.shortcuts import render
 from math import radians, cos, sin, asin, sqrt
-from .models import Comedor, MenuDiario, Comentario, Favorito
+from .models import Comedor, MenuDiario, Comentario, Favorito, AlertaSuscripcion, Metrica, Donacion
 from .serializers import (
     ComedorSerializer, ComedorDetalleSerializer, ComedorGeoJSONSerializer,
-    MenuDiarioSerializer, ComentarioSerializer
+    MenuDiarioSerializer, ComentarioSerializer, AlertaSuscripcionSerializer,
+    MetricaSerializer, DonacionSerializer
 )
 
 
@@ -420,14 +421,368 @@ class ComentarioViewSet(viewsets.ModelViewSet):
     serializer_class = ComentarioSerializer
     filter_backends = [filters.OrderingFilter]
     ordering = ['-fecha']
-    
+
     def get_queryset(self):
         """Filtrar por comedor si se especifica"""
         queryset = super().get_queryset()
         comedor_id = self.request.query_params.get('comedor', None)
-        
+
         if comedor_id:
             queryset = queryset.filter(comedor_id=comedor_id)
-        
+
         return queryset
+
+
+class AlertaSuscripcionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para suscripciones de alertas
+    Permite a usuarios suscribirse a notificaciones por WhatsApp/SMS
+    """
+    queryset = AlertaSuscripcion.objects.all()
+    serializer_class = AlertaSuscripcionSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre', 'telefono', 'barrios_interes']
+    ordering = ['-fecha_suscripcion']
+
+    def get_queryset(self):
+        """Filtrar suscripciones"""
+        queryset = super().get_queryset()
+
+        # Filtrar por activas
+        activa = self.request.query_params.get('activa', None)
+        if activa is not None:
+            activa_bool = activa.lower() in ['true', '1', 'yes']
+            queryset = queryset.filter(activa=activa_bool)
+
+        # Filtrar por tipo de alerta
+        tipo_alerta = self.request.query_params.get('tipo_alerta', None)
+        if tipo_alerta:
+            queryset = queryset.filter(tipo_alerta=tipo_alerta)
+
+        # Filtrar por canal
+        canal = self.request.query_params.get('canal', None)
+        if canal:
+            queryset = queryset.filter(canal_preferido=canal)
+
+        return queryset
+
+    @action(detail=True, methods=['post'])
+    def activar(self, request, pk=None):
+        """Activar una suscripción"""
+        suscripcion = self.get_object()
+        suscripcion.activa = True
+        suscripcion.save()
+        serializer = self.get_serializer(suscripcion)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def desactivar(self, request, pk=None):
+        """Desactivar una suscripción"""
+        suscripcion = self.get_object()
+        suscripcion.activa = False
+        suscripcion.save()
+        serializer = self.get_serializer(suscripcion)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def por_barrio(self, request):
+        """Obtener suscripciones agrupadas por barrio"""
+        barrios_stats = []
+
+        # Obtener todos los barrios únicos de las suscripciones
+        suscripciones = AlertaSuscripcion.objects.filter(activa=True)
+
+        barrios_set = set()
+        for suscripcion in suscripciones:
+            if suscripcion.barrios_interes:
+                barrios = [b.strip() for b in suscripcion.barrios_interes.split(',')]
+                barrios_set.update(barrios)
+
+        for barrio in barrios_set:
+            count = suscripciones.filter(barrios_interes__icontains=barrio).count()
+            barrios_stats.append({
+                'barrio': barrio,
+                'total_suscripciones': count
+            })
+
+        return Response(sorted(barrios_stats, key=lambda x: x['total_suscripciones'], reverse=True))
+
+
+class MetricaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para métricas y estadísticas
+    Proporciona datos para dashboards y reportes
+    """
+    queryset = Metrica.objects.all()
+    serializer_class = MetricaSerializer
+    filter_backends = [filters.OrderingFilter]
+    ordering = ['-fecha']
+
+    def get_queryset(self):
+        """Filtrar métricas por parámetros"""
+        queryset = super().get_queryset()
+
+        # Filtrar por comedor
+        comedor_id = self.request.query_params.get('comedor', None)
+        if comedor_id:
+            queryset = queryset.filter(comedor_id=comedor_id)
+
+        # Filtrar por tipo de métrica
+        tipo_metrica = self.request.query_params.get('tipo_metrica', None)
+        if tipo_metrica:
+            queryset = queryset.filter(tipo_metrica=tipo_metrica)
+
+        # Filtrar por rango de fechas
+        fecha_desde = self.request.query_params.get('fecha_desde', None)
+        fecha_hasta = self.request.query_params.get('fecha_hasta', None)
+
+        if fecha_desde:
+            queryset = queryset.filter(fecha__gte=fecha_desde)
+        if fecha_hasta:
+            queryset = queryset.filter(fecha__lte=fecha_hasta)
+
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def estadisticas(self, request):
+        """
+        Endpoint para obtener estadísticas globales
+        Usado en dashboard principal
+        """
+        from datetime import timedelta
+
+        hoy = timezone.now().date()
+        hace_7_dias = hoy - timedelta(days=7)
+        hace_30_dias = hoy - timedelta(days=30)
+
+        # Métricas del día
+        metricas_hoy = Metrica.objects.filter(fecha=hoy)
+
+        # Métricas de la semana
+        metricas_semana = Metrica.objects.filter(fecha__gte=hace_7_dias, fecha__lte=hoy)
+
+        # Métricas del mes
+        metricas_mes = Metrica.objects.filter(fecha__gte=hace_30_dias, fecha__lte=hoy)
+
+        stats = {
+            'hoy': {
+                'comidas_servidas': metricas_hoy.filter(tipo_metrica='COMIDAS_SERVIDAS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'cupos_ocupados': metricas_hoy.filter(tipo_metrica='CUPOS_OCUPADOS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'usuarios_atendidos': metricas_hoy.filter(tipo_metrica='USUARIOS_ATENDIDOS').aggregate(Sum('valor'))['valor__sum'] or 0,
+            },
+            'semana': {
+                'comidas_servidas': metricas_semana.filter(tipo_metrica='COMIDAS_SERVIDAS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'cupos_ocupados': metricas_semana.filter(tipo_metrica='CUPOS_OCUPADOS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'usuarios_atendidos': metricas_semana.filter(tipo_metrica='USUARIOS_ATENDIDOS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'donaciones_recibidas': metricas_semana.filter(tipo_metrica='DONACIONES_RECIBIDAS').aggregate(Sum('valor'))['valor__sum'] or 0,
+            },
+            'mes': {
+                'comidas_servidas': metricas_mes.filter(tipo_metrica='COMIDAS_SERVIDAS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'cupos_ocupados': metricas_mes.filter(tipo_metrica='CUPOS_OCUPADOS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'usuarios_atendidos': metricas_mes.filter(tipo_metrica='USUARIOS_ATENDIDOS').aggregate(Sum('valor'))['valor__sum'] or 0,
+                'donaciones_recibidas': metricas_mes.filter(tipo_metrica='DONACIONES_RECIBIDAS').aggregate(Sum('valor'))['valor__sum'] or 0,
+            }
+        }
+
+        return Response(stats)
+
+    @action(detail=False, methods=['get'])
+    def ultimos_7_dias(self, request):
+        """
+        Endpoint para gráficos de evolución temporal
+        Retorna datos de los últimos 7 días
+        """
+        from datetime import timedelta
+
+        hoy = timezone.now().date()
+        hace_7_dias = hoy - timedelta(days=7)
+
+        # Obtener métricas por día
+        metricas = Metrica.objects.filter(
+            fecha__gte=hace_7_dias,
+            fecha__lte=hoy
+        ).values('fecha', 'tipo_metrica').annotate(
+            total=Sum('valor')
+        ).order_by('fecha')
+
+        # Organizar por tipo de métrica
+        datos_por_tipo = {}
+        for metrica in metricas:
+            tipo = metrica['tipo_metrica']
+            if tipo not in datos_por_tipo:
+                datos_por_tipo[tipo] = []
+
+            datos_por_tipo[tipo].append({
+                'fecha': metrica['fecha'],
+                'valor': metrica['total']
+            })
+
+        return Response(datos_por_tipo)
+
+    @action(detail=False, methods=['get'])
+    def por_comedor(self, request):
+        """
+        Endpoint para ranking de comedores
+        Top 10 comedores por tipo de métrica
+        """
+        tipo_metrica = request.query_params.get('tipo_metrica', 'COMIDAS_SERVIDAS')
+        limite = int(request.query_params.get('limite', 10))
+
+        # Agregar por comedor
+        ranking = Metrica.objects.filter(
+            tipo_metrica=tipo_metrica,
+            comedor__isnull=False
+        ).values('comedor__id', 'comedor__nombre').annotate(
+            total=Sum('valor')
+        ).order_by('-total')[:limite]
+
+        return Response(list(ranking))
+
+
+class DonacionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para donaciones
+    Gestiona el flujo completo de donaciones con matching automático
+    """
+    queryset = Donacion.objects.all()
+    serializer_class = DonacionSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre_donante', 'descripcion', 'barrio_donante']
+    ordering = ['-fecha_creacion']
+
+    def get_queryset(self):
+        """Filtrar donaciones por parámetros"""
+        queryset = super().get_queryset()
+
+        # Filtrar por estado
+        estado = self.request.query_params.get('estado', None)
+        if estado:
+            queryset = queryset.filter(estado=estado)
+
+        # Filtrar por tipo
+        tipo_donacion = self.request.query_params.get('tipo_donacion', None)
+        if tipo_donacion:
+            queryset = queryset.filter(tipo_donacion=tipo_donacion)
+
+        # Filtrar por comedor asignado
+        comedor_id = self.request.query_params.get('comedor', None)
+        if comedor_id:
+            queryset = queryset.filter(comedor_asignado_id=comedor_id)
+
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        """
+        Crear donación y opcionalmente asignar comedor automáticamente
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        donacion = serializer.save()
+
+        # Si hay coordenadas, asignar automáticamente
+        if donacion.latitud_donante and donacion.longitud_donante:
+            comedor = donacion.asignar_comedor_cercano()
+            if comedor:
+                donacion.comedor_asignado = comedor
+                donacion.estado = 'ASIGNADA'
+                donacion.fecha_asignacion = timezone.now()
+                donacion.save()
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            self.get_serializer(donacion).data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+
+    @action(detail=True, methods=['post'])
+    def asignar_automaticamente(self, request, pk=None):
+        """
+        Asignar donación a comedor más cercano manualmente
+        """
+        donacion = self.get_object()
+
+        if donacion.estado != 'PENDIENTE':
+            return Response(
+                {'error': 'La donación ya fue asignada o entregada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        comedor = donacion.asignar_comedor_cercano()
+
+        if not comedor:
+            return Response(
+                {'error': 'No se pudo encontrar un comedor cercano. Verifique que la donación tenga coordenadas.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        donacion.comedor_asignado = comedor
+        donacion.estado = 'ASIGNADA'
+        donacion.fecha_asignacion = timezone.now()
+        donacion.save()
+
+        serializer = self.get_serializer(donacion)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def marcar_en_transito(self, request, pk=None):
+        """Marcar donación como en tránsito"""
+        donacion = self.get_object()
+        donacion.estado = 'EN_TRANSITO'
+        donacion.save()
+        serializer = self.get_serializer(donacion)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def marcar_entregada(self, request, pk=None):
+        """Marcar donación como entregada"""
+        donacion = self.get_object()
+        donacion.estado = 'ENTREGADA'
+        donacion.fecha_entrega_real = timezone.now().date()
+        donacion.save()
+        serializer = self.get_serializer(donacion)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def estadisticas(self, request):
+        """Estadísticas de donaciones"""
+        from datetime import timedelta
+
+        hoy = timezone.now().date()
+        hace_30_dias = hoy - timedelta(days=30)
+
+        # Totales
+        total_donaciones = Donacion.objects.count()
+        total_entregadas = Donacion.objects.filter(estado='ENTREGADA').count()
+        total_pendientes = Donacion.objects.filter(estado='PENDIENTE').count()
+
+        # Del mes actual
+        donaciones_mes = Donacion.objects.filter(fecha_creacion__gte=hace_30_dias)
+
+        # Por tipo
+        por_tipo = Donacion.objects.values('tipo_donacion').annotate(
+            total=Count('id')
+        ).order_by('-total')
+
+        # Valor monetario total
+        valor_total = Donacion.objects.filter(
+            valor_monetario__isnull=False
+        ).aggregate(Sum('valor_monetario'))['valor_monetario__sum'] or 0
+
+        # Peso total de alimentos
+        peso_total = Donacion.objects.filter(
+            cantidad_estimada_kg__isnull=False
+        ).aggregate(Sum('cantidad_estimada_kg'))['cantidad_estimada_kg__sum'] or 0
+
+        stats = {
+            'total_donaciones': total_donaciones,
+            'total_entregadas': total_entregadas,
+            'total_pendientes': total_pendientes,
+            'donaciones_mes': donaciones_mes.count(),
+            'por_tipo': list(por_tipo),
+            'valor_monetario_total': float(valor_total),
+            'peso_total_kg': float(peso_total),
+        }
+
+        return Response(stats)
 

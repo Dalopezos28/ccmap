@@ -19,15 +19,26 @@ let currentFilters = {
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', function() {
+    // Cargar preferencias de accesibilidad
+    loadAccessibilityPreferences();
+
+    updateLoaderProgress(20, 'Inicializando mapa...');
     initMap();
+
+    updateLoaderProgress(40, 'Cargando comedores cercanos...');
     loadComedores();
+
     setupEventListeners();
-    
-    // Ocultar loader después de 1 segundo
-    setTimeout(() => {
-        document.getElementById('loader').classList.add('hidden');
-    }, 1000);
 });
+
+// ===== CARGAR PREFERENCIAS DE ACCESIBILIDAD =====
+function loadAccessibilityPreferences() {
+    // Alto contraste
+    const highContrast = localStorage.getItem('high_contrast') === 'true';
+    if (highContrast) {
+        document.body.classList.add('high-contrast');
+    }
+}
 
 // ===== INICIALIZAR MAPA =====
 function initMap() {
@@ -118,18 +129,136 @@ function addClusterStyles() {
 // ===== CARGAR COMEDORES DESDE API =====
 async function loadComedores() {
     try {
+        updateLoaderProgress(60, 'Descargando datos...');
         const response = await fetch(`${window.API_BASE_URL}/comedores/geojson/`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
-        
+
+        // Guardar en localStorage para fallback offline
+        localStorage.setItem('comedores_cache', JSON.stringify(data.features));
+        localStorage.setItem('comedores_cache_timestamp', Date.now());
+
+        updateLoaderProgress(80, 'Procesando comedores...');
         comedoresData = data.features;
         displayComedores(comedoresData);
         updateStats();
-        
-        showToast('Comedores cargados correctamente', 'success');
+
+        updateLoaderProgress(100, '¡Listo!');
+        setTimeout(() => {
+            document.getElementById('loader').classList.add('hidden');
+        }, 500);
+
+        showToast(`${comedoresData.length} comedores cargados correctamente`, 'success');
     } catch (error) {
         console.error('Error al cargar comedores:', error);
-        showToast('Error al cargar los datos', 'error');
+
+        // Intentar cargar desde cache
+        const cachedData = localStorage.getItem('comedores_cache');
+
+        if (cachedData) {
+            const timestamp = localStorage.getItem('comedores_cache_timestamp');
+            const hoursAgo = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
+
+            updateLoaderProgress(80, 'Cargando datos guardados...');
+            comedoresData = JSON.parse(cachedData);
+            displayComedores(comedoresData);
+            updateStats();
+
+            updateLoaderProgress(100, 'Datos cargados desde caché');
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('hidden');
+            }, 500);
+
+            showToast(`Modo offline: Datos de hace ${hoursAgo} horas`, 'info');
+        } else {
+            // Si no hay cache, cargar datos estáticos de emergencia
+            loadFallbackData();
+        }
     }
+}
+
+// ===== DATOS ESTÁTICOS DE EMERGENCIA =====
+function loadFallbackData() {
+    updateLoaderProgress(60, 'Sin conexión. Cargando datos básicos...');
+
+    // Datos mínimos de comedores clave de Cali
+    const fallbackComedores = [
+        {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-76.5320, 3.4516] },
+            properties: {
+                id: 1,
+                nombre: "Comedor Comunal San Bosco",
+                direccion: "Calle 5 #36-00",
+                barrio: "San Bosco",
+                telefono: "3001234567",
+                esta_abierto: true,
+                cupos_disponibles: 50,
+                horario_apertura: "07:00",
+                horario_cierre: "14:00",
+                tipo_comida: "CASERA",
+                es_gratuito: true,
+                precio_texto: "GRATIS",
+                calificacion_promedio: 4.5,
+                estado_cupos: "disponible"
+            }
+        },
+        {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-76.5425, 3.4370] },
+            properties: {
+                id: 2,
+                nombre: "Fundación Amor y Vida",
+                direccion: "Carrera 10 #25-30",
+                barrio: "Alfonso López",
+                telefono: "3107654321",
+                esta_abierto: true,
+                cupos_disponibles: 30,
+                horario_apertura: "06:00",
+                horario_cierre: "15:00",
+                tipo_comida: "MIXTA",
+                es_gratuito: false,
+                precio_texto: "$2.000",
+                calificacion_promedio: 4.0,
+                estado_cupos: "pocos"
+            }
+        },
+        {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-76.5280, 3.4650] },
+            properties: {
+                id: 3,
+                nombre: "Comedor Popular Siloé",
+                direccion: "Calle 8A #52-15",
+                barrio: "Siloé",
+                telefono: "3159876543",
+                esta_abierto: false,
+                cupos_disponibles: 0,
+                horario_apertura: "11:00",
+                horario_cierre: "16:00",
+                tipo_comida: "TIPICA",
+                es_gratuito: true,
+                precio_texto: "GRATIS",
+                calificacion_promedio: 4.8,
+                estado_cupos: "lleno"
+            }
+        }
+    ];
+
+    comedoresData = fallbackComedores;
+    displayComedores(comedoresData);
+    updateStats();
+
+    updateLoaderProgress(100, 'Datos de emergencia cargados');
+    setTimeout(() => {
+        document.getElementById('loader').classList.add('hidden');
+    }, 500);
+
+    showToast('⚠️ Sin conexión: Mostrando comedores básicos', 'error');
 }
 
 // ===== MOSTRAR COMEDORES EN EL MAPA =====
@@ -168,7 +297,10 @@ async function showComedorModal(comedorId) {
     const modal = document.getElementById('modal-comedor');
     const modalLoader = document.getElementById('modal-loader');
     const modalContentBody = document.getElementById('modal-content-body');
-    
+
+    // Guardar elemento con foco actual
+    window.lastFocusedElement = document.activeElement;
+
     // Mostrar modal con loader
     modal.classList.add('show');
     modalLoader.style.display = 'block';
@@ -185,6 +317,11 @@ async function showComedorModal(comedorId) {
         // Ocultar loader y mostrar contenido
         modalLoader.style.display = 'none';
         modalContentBody.style.display = 'block';
+
+        // Enfocar el botón de cerrar para accesibilidad
+        setTimeout(() => {
+            document.getElementById('btn-close-modal').focus();
+        }, 100);
     } catch (error) {
         console.error('Error al cargar comedor:', error);
         showToast('Error al cargar la información', 'error');
@@ -450,7 +587,13 @@ function fillModalContent(comedor) {
 
 // ===== CERRAR MODAL =====
 function closeModal() {
-    document.getElementById('modal-comedor').classList.remove('show');
+    const modal = document.getElementById('modal-comedor');
+    modal.classList.remove('show');
+
+    // Restaurar foco al elemento que abrió el modal
+    if (window.lastFocusedElement) {
+        window.lastFocusedElement.focus();
+    }
 }
 
 // ===== SETUP EVENT LISTENERS =====
@@ -490,6 +633,95 @@ function setupEventListeners() {
     // Ayuda
     document.getElementById('btn-ayuda').addEventListener('click', () => {
         document.getElementById('modal-ayuda').classList.add('show');
+    });
+
+    // Alto contraste
+    document.getElementById('btn-alto-contraste').addEventListener('click', toggleAltoContraste);
+
+    // Navegación por teclado
+    setupKeyboardNavigation();
+}
+
+// ===== TOGGLE ALTO CONTRASTE =====
+function toggleAltoContraste() {
+    document.body.classList.toggle('high-contrast');
+
+    const isActive = document.body.classList.contains('high-contrast');
+
+    // Guardar preferencia en localStorage
+    localStorage.setItem('high_contrast', isActive);
+
+    const message = isActive ? 'Modo alto contraste activado' : 'Modo normal activado';
+    showToast(message, 'info');
+}
+
+// ===== NAVEGACIÓN POR TECLADO =====
+function setupKeyboardNavigation() {
+    // Escape cierra modales
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            // Cerrar modal de comedor
+            const modalComedor = document.getElementById('modal-comedor');
+            if (modalComedor.classList.contains('show')) {
+                closeModal();
+                e.preventDefault();
+            }
+
+            // Cerrar modal de ayuda
+            const modalAyuda = document.getElementById('modal-ayuda');
+            if (modalAyuda.classList.contains('show')) {
+                cerrarModalAyuda();
+                e.preventDefault();
+            }
+
+            // Cerrar modal simple
+            const modalSimple = document.getElementById('modal-simple');
+            if (modalSimple.classList.contains('show')) {
+                cerrarModoSimple();
+                e.preventDefault();
+            }
+
+            // Cerrar sidebar si está abierto
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar.classList.contains('collapsed')) {
+                toggleSidebar();
+                e.preventDefault();
+            }
+        }
+
+        // Ctrl/Cmd + F enfoca búsqueda
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            const searchInput = document.getElementById('search-input');
+
+            // Abrir sidebar si está cerrado
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar.classList.contains('collapsed')) {
+                toggleSidebar();
+            }
+
+            searchInput.focus();
+        }
+
+        // Ctrl/Cmd + H abre ayuda
+        if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+            e.preventDefault();
+            document.getElementById('modal-ayuda').classList.add('show');
+        }
+
+        // Ctrl/Cmd + K activa alto contraste
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            toggleAltoContraste();
+        }
+    });
+
+    // Mejorar accesibilidad del toggle sidebar
+    const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+    btnToggleSidebar.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const isExpanded = !sidebar.classList.contains('collapsed');
+        btnToggleSidebar.setAttribute('aria-expanded', isExpanded);
     });
 }
 
@@ -685,6 +917,20 @@ document.addEventListener('click', (e) => {
 });
 
 // ===== UTILIDADES =====
+
+// Actualizar progreso del loader
+function updateLoaderProgress(percentage, message) {
+    const progressBar = document.getElementById('loader-progress-bar');
+    const loaderMessage = document.getElementById('loader-message');
+
+    if (progressBar) {
+        progressBar.style.width = percentage + '%';
+    }
+
+    if (loaderMessage && message) {
+        loaderMessage.textContent = message;
+    }
+}
 
 // Mostrar notificación toast
 function showToast(message, type = 'info') {

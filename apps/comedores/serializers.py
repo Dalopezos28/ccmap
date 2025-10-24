@@ -3,7 +3,7 @@ Serializers para la API REST de Comedores
 """
 from rest_framework import serializers
 # from rest_framework_gis.serializers import GeoFeatureModelSerializer  # No necesario con SQLite
-from .models import Comedor, MenuDiario, Comentario, Favorito
+from .models import Comedor, MenuDiario, Comentario, Favorito, AlertaSuscripcion, Metrica, Donacion
 
 
 class MenuDiarioSerializer(serializers.ModelSerializer):
@@ -162,4 +162,88 @@ class ComedorDetalleSerializer(ComedorSerializer):
         """Obtener todos los comentarios aprobados"""
         comentarios = obj.comentarios.filter(aprobado=True)
         return ComentarioSerializer(comentarios, many=True).data
+
+
+class AlertaSuscripcionSerializer(serializers.ModelSerializer):
+    """Serializer para suscripciones de alertas"""
+    tipo_alerta_display = serializers.CharField(source='get_tipo_alerta_display', read_only=True)
+    canal_preferido_display = serializers.CharField(source='get_canal_preferido_display', read_only=True)
+    telefono_limpio = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = AlertaSuscripcion
+        fields = [
+            'id', 'nombre', 'telefono', 'email',
+            'tipo_alerta', 'tipo_alerta_display',
+            'canal_preferido', 'canal_preferido_display',
+            'barrios_interes', 'radio_km',
+            'latitud', 'longitud',
+            'activa', 'verificada',
+            'fecha_suscripcion', 'ultima_notificacion',
+            'telefono_limpio'
+        ]
+        read_only_fields = ['fecha_suscripcion', 'ultima_notificacion', 'verificada']
+
+    def get_telefono_limpio(self, obj):
+        """Retorna teléfono sin caracteres especiales"""
+        return obj.telefono_limpio
+
+
+class MetricaSerializer(serializers.ModelSerializer):
+    """Serializer para métricas"""
+    tipo_metrica_display = serializers.CharField(source='get_tipo_metrica_display', read_only=True)
+    comedor_nombre = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Metrica
+        fields = [
+            'id', 'comedor', 'comedor_nombre',
+            'tipo_metrica', 'tipo_metrica_display',
+            'valor', 'fecha', 'fecha_registro',
+            'metadata'
+        ]
+        read_only_fields = ['fecha_registro']
+
+    def get_comedor_nombre(self, obj):
+        """Retorna nombre del comedor o 'Global'"""
+        return obj.comedor.nombre if obj.comedor else 'Global'
+
+
+class DonacionSerializer(serializers.ModelSerializer):
+    """Serializer para donaciones"""
+    tipo_donacion_display = serializers.CharField(source='get_tipo_donacion_display', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    comedor_nombre = serializers.SerializerMethodField(read_only=True)
+    comedor_info = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Donacion
+        fields = [
+            'id', 'nombre_donante', 'telefono_donante', 'email_donante',
+            'tipo_donacion', 'tipo_donacion_display',
+            'descripcion', 'cantidad_estimada_kg', 'valor_monetario',
+            'direccion_recoleccion', 'barrio_donante',
+            'latitud_donante', 'longitud_donante',
+            'comedor_asignado', 'comedor_nombre', 'comedor_info',
+            'fecha_asignacion', 'estado', 'estado_display',
+            'fecha_entrega_estimada', 'fecha_entrega_real',
+            'fecha_creacion', 'notas_admin'
+        ]
+        read_only_fields = ['fecha_creacion', 'fecha_asignacion']
+
+    def get_comedor_nombre(self, obj):
+        """Retorna nombre del comedor asignado"""
+        return obj.comedor_asignado.nombre if obj.comedor_asignado else None
+
+    def get_comedor_info(self, obj):
+        """Retorna información básica del comedor asignado"""
+        if obj.comedor_asignado:
+            return {
+                'id': obj.comedor_asignado.id,
+                'nombre': obj.comedor_asignado.nombre,
+                'direccion': obj.comedor_asignado.direccion,
+                'barrio': obj.comedor_asignado.barrio,
+                'telefono': obj.comedor_asignado.telefono,
+            }
+        return None
 

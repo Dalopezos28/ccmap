@@ -404,3 +404,303 @@ class Favorito(models.Model):
     def __str__(self):
         return f"{self.usuario.username} - {self.comedor.nombre}"
 
+
+class AlertaSuscripcion(models.Model):
+    """
+    Modelo para suscripciones de alertas por WhatsApp/SMS
+    Usuarios pueden recibir notificaciones cuando hay cupos disponibles
+    """
+    TIPO_ALERTA_CHOICES = [
+        ('CUPOS_BAJOS', 'Cupos Bajos en mi Barrio'),
+        ('NUEVO_COMEDOR', 'Nuevo Comedor Cercano'),
+        ('MENU_DIA', 'Menú del Día'),
+        ('APERTURA', 'Comedor Abierto Ahora'),
+    ]
+
+    CANAL_CHOICES = [
+        ('WHATSAPP', 'WhatsApp'),
+        ('SMS', 'SMS'),
+        ('EMAIL', 'Email'),
+    ]
+
+    # Información del suscriptor
+    nombre = models.CharField(max_length=100, verbose_name='Nombre')
+    telefono = models.CharField(
+        max_length=50,
+        verbose_name='Teléfono/WhatsApp',
+        help_text='Formato: +57 300 123 4567'
+    )
+    email = models.EmailField(verbose_name='Email', blank=True, null=True)
+
+    # Preferencias de alerta
+    tipo_alerta = models.CharField(
+        max_length=30,
+        choices=TIPO_ALERTA_CHOICES,
+        default='CUPOS_BAJOS',
+        verbose_name='Tipo de Alerta'
+    )
+    canal_preferido = models.CharField(
+        max_length=20,
+        choices=CANAL_CHOICES,
+        default='WHATSAPP',
+        verbose_name='Canal Preferido'
+    )
+
+    # Filtros geográficos
+    barrios_interes = models.TextField(
+        verbose_name='Barrios de Interés',
+        help_text='Barrios separados por comas (ej: San Bosco, Siloé, Alfonso López)',
+        blank=True
+    )
+    radio_km = models.IntegerField(
+        verbose_name='Radio en Kilómetros',
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+        help_text='Radio de búsqueda desde tu ubicación'
+    )
+
+    # Ubicación del suscriptor (opcional)
+    latitud = models.FloatField(verbose_name='Latitud', blank=True, null=True)
+    longitud = models.FloatField(verbose_name='Longitud', blank=True, null=True)
+
+    # Estado
+    activa = models.BooleanField(default=True, verbose_name='Suscripción Activa')
+    verificada = models.BooleanField(default=False, verbose_name='Número Verificado')
+
+    # Metadata
+    fecha_suscripcion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Suscripción')
+    ultima_notificacion = models.DateTimeField(
+        verbose_name='Última Notificación Enviada',
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+        verbose_name = 'Suscripción de Alerta'
+        verbose_name_plural = 'Suscripciones de Alertas'
+        ordering = ['-fecha_suscripcion']
+        indexes = [
+            models.Index(fields=['telefono', 'activa']),
+            models.Index(fields=['tipo_alerta', 'activa']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} - {self.get_tipo_alerta_display()} ({self.telefono})"
+
+    @property
+    def telefono_limpio(self):
+        """Retorna teléfono sin espacios ni caracteres especiales"""
+        return ''.join(filter(str.isdigit, self.telefono))
+
+
+class Metrica(models.Model):
+    """
+    Modelo para tracking de métricas y estadísticas del sistema
+    Permite generar dashboards con evolución temporal
+    """
+    TIPO_METRICA_CHOICES = [
+        ('COMIDAS_SERVIDAS', 'Comidas Servidas'),
+        ('CUPOS_OCUPADOS', 'Cupos Ocupados'),
+        ('USUARIOS_ATENDIDOS', 'Usuarios Atendidos'),
+        ('DONACIONES_RECIBIDAS', 'Donaciones Recibidas'),
+    ]
+
+    comedor = models.ForeignKey(
+        Comedor,
+        on_delete=models.CASCADE,
+        related_name='metricas',
+        verbose_name='Comedor',
+        null=True,
+        blank=True,
+        help_text='Dejar vacío para métricas globales'
+    )
+
+    tipo_metrica = models.CharField(
+        max_length=30,
+        choices=TIPO_METRICA_CHOICES,
+        verbose_name='Tipo de Métrica'
+    )
+
+    valor = models.IntegerField(
+        verbose_name='Valor',
+        validators=[MinValueValidator(0)]
+    )
+
+    fecha = models.DateField(verbose_name='Fecha', default=timezone.now)
+    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Registro')
+
+    # Metadata adicional (JSON flexible)
+    metadata = models.JSONField(
+        verbose_name='Metadata Adicional',
+        blank=True,
+        null=True,
+        help_text='Datos adicionales en formato JSON'
+    )
+
+    class Meta:
+        verbose_name = 'Métrica'
+        verbose_name_plural = 'Métricas'
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['comedor', 'tipo_metrica', '-fecha']),
+            models.Index(fields=['tipo_metrica', '-fecha']),
+        ]
+
+    def __str__(self):
+        comedor_nombre = self.comedor.nombre if self.comedor else 'Global'
+        return f"{comedor_nombre} - {self.get_tipo_metrica_display()}: {self.valor} ({self.fecha})"
+
+
+class Donacion(models.Model):
+    """
+    Modelo para gestionar donaciones de alimentos y recursos
+    Incluye sistema de matching con comedores cercanos
+    """
+    TIPO_DONACION_CHOICES = [
+        ('ALIMENTOS', 'Alimentos No Perecederos'),
+        ('PERECEDEROS', 'Alimentos Perecederos'),
+        ('DINERO', 'Dinero en Efectivo'),
+        ('INSUMOS', 'Insumos de Cocina'),
+        ('VOLUNTARIADO', 'Tiempo como Voluntario'),
+    ]
+
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente de Asignación'),
+        ('ASIGNADA', 'Asignada a Comedor'),
+        ('EN_TRANSITO', 'En Tránsito'),
+        ('ENTREGADA', 'Entregada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+
+    # Información del donante
+    nombre_donante = models.CharField(max_length=200, verbose_name='Nombre del Donante')
+    telefono_donante = models.CharField(max_length=50, verbose_name='Teléfono')
+    email_donante = models.EmailField(verbose_name='Email', blank=True, null=True)
+
+    # Detalles de la donación
+    tipo_donacion = models.CharField(
+        max_length=30,
+        choices=TIPO_DONACION_CHOICES,
+        verbose_name='Tipo de Donación'
+    )
+    descripcion = models.TextField(
+        verbose_name='Descripción',
+        help_text='Ej: 20 kg de arroz, 10 kg de frijol, 5 litros de aceite'
+    )
+    cantidad_estimada_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Cantidad Estimada (kg)',
+        validators=[MinValueValidator(0)],
+        blank=True,
+        null=True,
+        help_text='Para alimentos, peso aproximado'
+    )
+    valor_monetario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name='Valor Monetario',
+        validators=[MinValueValidator(0)],
+        blank=True,
+        null=True,
+        help_text='Valor estimado en pesos colombianos'
+    )
+
+    # Ubicación del donante
+    direccion_recoleccion = models.TextField(
+        verbose_name='Dirección de Recolección',
+        blank=True,
+        help_text='Dejar vacío si el donante llevará la donación'
+    )
+    barrio_donante = models.CharField(max_length=100, verbose_name='Barrio', blank=True)
+    latitud_donante = models.FloatField(verbose_name='Latitud Donante', blank=True, null=True)
+    longitud_donante = models.FloatField(verbose_name='Longitud Donante', blank=True, null=True)
+
+    # Matching con comedor
+    comedor_asignado = models.ForeignKey(
+        Comedor,
+        on_delete=models.SET_NULL,
+        related_name='donaciones',
+        verbose_name='Comedor Asignado',
+        null=True,
+        blank=True
+    )
+    fecha_asignacion = models.DateTimeField(
+        verbose_name='Fecha de Asignación',
+        blank=True,
+        null=True
+    )
+
+    # Estado
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='PENDIENTE',
+        verbose_name='Estado'
+    )
+    fecha_entrega_estimada = models.DateField(
+        verbose_name='Fecha de Entrega Estimada',
+        blank=True,
+        null=True
+    )
+    fecha_entrega_real = models.DateField(
+        verbose_name='Fecha de Entrega Real',
+        blank=True,
+        null=True
+    )
+
+    # Metadata
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación')
+    notas_admin = models.TextField(
+        verbose_name='Notas del Administrador',
+        blank=True,
+        help_text='Notas internas sobre la donación'
+    )
+
+    class Meta:
+        verbose_name = 'Donación'
+        verbose_name_plural = 'Donaciones'
+        ordering = ['-fecha_creacion']
+        indexes = [
+            models.Index(fields=['estado', '-fecha_creacion']),
+            models.Index(fields=['comedor_asignado', '-fecha_creacion']),
+            models.Index(fields=['barrio_donante']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre_donante} - {self.get_tipo_donacion_display()} ({self.get_estado_display()})"
+
+    def asignar_comedor_cercano(self):
+        """
+        Algoritmo de matching automático:
+        Encuentra el comedor más cercano que necesite donaciones
+        """
+        if not self.latitud_donante or not self.longitud_donante:
+            return None
+
+        # Buscar comedores activos
+        comedores = Comedor.objects.filter(estado_activo=True)
+
+        # Calcular distancia a cada comedor (fórmula Haversine simplificada)
+        from math import radians, cos, sin, asin, sqrt
+
+        mejor_comedor = None
+        distancia_minima = float('inf')
+
+        for comedor in comedores:
+            # Haversine formula
+            lon1, lat1 = radians(self.longitud_donante), radians(self.latitud_donante)
+            lon2, lat2 = radians(comedor.longitud), radians(comedor.latitud)
+
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(a))
+            km = 6371 * c
+
+            if km < distancia_minima:
+                distancia_minima = km
+                mejor_comedor = comedor
+
+        return mejor_comedor
+
