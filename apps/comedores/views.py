@@ -786,3 +786,10 @@ class DonacionViewSet(viewsets.ModelViewSet):
 
         return Response(stats)
 
+
+
+def dashboard_view(request):
+    """
+    Vista para renderizar el dashboard con gráficos de Chart.js
+    """
+    return render(request, 'dashboard.html')

@@ -33,6 +33,13 @@
                 <i class="fas fa-project-diagram" aria-hidden="true"></i>
                 <span class="btn-text">Red de Comedores</span>
             </a>
+            <a href="{% url 'dashboard' %}" class="btn btn-info"
+               title="Ver Dashboard de Estadísticas"
+               aria-label="Ver dashboard con gráficos y estadísticas"
+               style="background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-chart-line" aria-hidden="true"></i>
+                <span class="btn-text">Estadísticas</span>
+            </a>
             <button id="btn-emergencia" class="btn btn-danger-pulse"
                     title="¿Necesitas comer HOY?"
                     aria-label="Buscar comedores disponibles ahora con cupos">
@@ -698,5 +705,11 @@
     window.CALI_CENTER = {lat: 3.4516, lng: -76.5320};
     window.API_BASE_URL = '/api';
 </script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Scripts para Alertas y Donaciones -->
+<script src="{% static 'js/alertas.js' %}"></script>
+<script src="{% static 'js/donaciones.js' %}"></script>
 {% endblock %}
 

@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Estadísticas de Comedores{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        background: var(--light-bg, #f5f5f5);
+        min-height: 100vh;
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .dashboard-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 32px;
+        font-weight: 700;
+    }
+
+    .dashboard-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 16px;
+    }
+
+    .nav-back {
+        display: inline-block;
+        margin-bottom: 20px;
+        padding: 10px 20px;
+        background: white;
+        color: var(--primary-color, #2196f3);
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .nav-back:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .metric-card {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+
+    .metric-card .icon {
+        font-size: 40px;
+        margin-bottom: 15px;
+    }
+
+    .metric-card .value {
+        font-size: 36px;
+        font-weight: 700;
+        margin: 10px 0;
+    }
+
+    .metric-card .label {
+        color: #757575;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .metric-card.primary { border-left: 4px solid #2196f3; }
+    .metric-card.primary .icon { color: #2196f3; }
+
+    .metric-card.success { border-left: 4px solid #4caf50; }
+    .metric-card.success .icon { color: #4caf50; }
+
+    .metric-card.warning { border-left: 4px solid #ff9800; }
+    .metric-card.warning .icon { color: #ff9800; }
+
+    .metric-card.danger { border-left: 4px solid #f44336; }
+    .metric-card.danger .icon { color: #f44336; }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .chart-card {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .chart-card.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .chart-card h3 {
+        margin: 0 0 20px 0;
+        color: var(--primary-color, #2196f3);
+        font-size: 20px;
+        font-weight: 600;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+
+    .chart-container.tall {
+        height: 400px;
+    }
+
+    .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #757575;
+    }
+
+    .error {
+        padding: 20px;
+        background: #ffebee;
+        color: #c62828;
+        border-radius: 8px;
+        margin: 20px 0;
+    }
+
+    @media (max-width: 768px) {
+        .charts-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-header h1 {
+            font-size: 24px;
+        }
+
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Navegación -->
+    <a href="{% url 'mapa' %}" class="nav-back">
+        <i class="fas fa-arrow-left"></i> Volver al Mapa
+    </a>
+
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h1><i class="fas fa-chart-line"></i> Dashboard de Estadísticas</h1>
+        <p>Visualización en tiempo real del impacto social de los comedores comunitarios</p>
+    </div>
+
+    <!-- Métricas Destacadas -->
+    <div class="metrics-grid">
+        <div class="metric-card primary">
+            <div class="icon">
+                <i class="fas fa-utensils"></i>
+            </div>
+            <div class="label">Comidas Servidas (Mes)</div>
+            <div class="value" id="metric-comidas">...</div>
+        </div>
+
+        <div class="metric-card success">
+            <div class="icon">
+                <i class="fas fa-hand-holding-heart"></i>
+            </div>
+            <div class="label">Donaciones Recibidas</div>
+            <div class="value" id="metric-donaciones">...</div>
+        </div>
+
+        <div class="metric-card warning">
+            <div class="icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="label">Personas Atendidas (Hoy)</div>
+            <div class="value" id="metric-personas">...</div>
+        </div>
+
+        <div class="metric-card danger">
+            <div class="icon">
+                <i class="fas fa-dollar-sign"></i>
+            </div>
+            <div class="label">Valor Donaciones (COP)</div>
+            <div class="value" id="metric-valor">...</div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="charts-grid">
+        <!-- Gráfico 1: Evolución de Cupos (Líneas) -->
+        <div class="chart-card full-width">
+            <h3><i class="fas fa-chart-line"></i> Evolución de Métricas (Últimos 7 Días)</h3>
+            <div class="chart-container tall">
+                <canvas id="chart-evolucion"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfico 2: Comidas Servidas por Comedor (Barras) -->
+        <div class="chart-card">
+            <h3><i class="fas fa-chart-bar"></i> Top 10 Comedores (Mes)</h3>
+            <div class="chart-container tall">
+                <canvas id="chart-comedores"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfico 3: Donaciones por Tipo (Donut) -->
+        <div class="chart-card">
+            <h3><i class="fas fa-chart-pie"></i> Donaciones por Tipo</h3>
+            <div class="chart-container">
+                <canvas id="chart-donaciones"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensaje de error (oculto por defecto) -->
+    <div id="error-message" class="error" style="display: none;">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span id="error-text"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Dashboard Script -->
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}

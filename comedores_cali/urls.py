@@ -6,11 +6,13 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from apps.core import views as core_views
+from apps.comedores import views as comedores_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', core_views.mapa_view, name='mapa'),
     path('network/', core_views.network_view, name='network'),
+    path('dashboard/', comedores_views.dashboard_view, name='dashboard'),
     path('api/', include('apps.comedores.urls')),
 ]
 

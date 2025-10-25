@@ -215,6 +215,7 @@ class DonacionSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     comedor_nombre = serializers.SerializerMethodField(read_only=True)
     comedor_info = serializers.SerializerMethodField(read_only=True)
+    distancia_km = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Donacion
@@ -224,7 +225,7 @@ class DonacionSerializer(serializers.ModelSerializer):
             'descripcion', 'cantidad_estimada_kg', 'valor_monetario',
             'direccion_recoleccion', 'barrio_donante',
             'latitud_donante', 'longitud_donante',
-            'comedor_asignado', 'comedor_nombre', 'comedor_info',
+            'comedor_asignado', 'comedor_nombre', 'comedor_info', 'distancia_km',
             'fecha_asignacion', 'estado', 'estado_display',
             'fecha_entrega_estimada', 'fecha_entrega_real',
             'fecha_creacion', 'notas_admin'
@@ -235,6 +236,20 @@ class DonacionSerializer(serializers.ModelSerializer):
         """Retorna nombre del comedor asignado"""
         return obj.comedor_asignado.nombre if obj.comedor_asignado else None
 
+    def get_distancia_km(self, obj):
+        """Calcular distancia entre donante y comedor asignado"""
+        if obj.comedor_asignado and obj.latitud_donante and obj.longitud_donante:
+            from math import radians, cos, sin, asin, sqrt
+            lat1, lon1 = radians(obj.latitud_donante), radians(obj.longitud_donante)
+            lat2, lon2 = radians(obj.comedor_asignado.latitud), radians(obj.comedor_asignado.longitud)
+
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(a))
+            return round(c * 6371, 2)  # Radio de la Tierra en km
+        return None
+
     def get_comedor_info(self, obj):
         """Retorna información básica del comedor asignado"""
         if obj.comedor_asignado:
@@ -244,6 +259,8 @@ class DonacionSerializer(serializers.ModelSerializer):
                 'direccion': obj.comedor_asignado.direccion,
                 'barrio': obj.comedor_asignado.barrio,
                 'telefono': obj.comedor_asignado.telefono,
+                'latitud': obj.comedor_asignado.latitud,
+                'longitud': obj.comedor_asignado.longitud,
             }
         return None
 
