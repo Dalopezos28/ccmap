@@ -37,17 +37,24 @@ self.addEventListener('activate', event => {
 
 // Intercepción de peticiones (estrategia network first, cache fallback)
 self.addEventListener('fetch', event => {
+    // Solo cachear peticiones HTTP/HTTPS
+    if (!event.request.url.startsWith('http')) {
+        return;
+    }
+
     event.respondWith(
         fetch(event.request)
             .then(response => {
                 // Clonar la respuesta
                 const responseClone = response.clone();
-                
-                // Guardar en cache
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, responseClone);
-                });
-                
+
+                // Guardar en cache solo si es una respuesta exitosa
+                if (response.status === 200) {
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, responseClone);
+                    });
+                }
+
                 return response;
             })
             .catch(() => {
