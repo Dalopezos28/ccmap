@@ -32,6 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarEvolucion();
     cargarTopComedores();
     cargarDonacionesPorTipo();
+
+    // Actualizar datos cada 5 minutos
+    setInterval(() => {
+        cargarMetricas();
+        cargarEvolucion();
+        cargarTopComedores();
+        cargarDonacionesPorTipo();
+    }, 300000); // 5 minutos
 });
 
 /**
@@ -366,11 +374,3 @@ function mostrarError(mensaje) {
         }, 5000);
     }
 }
-
-// Actualizar datos cada 5 minutos
-setInterval(() => {
-    cargarMetricas();
-    cargarEvolucion();
-    cargarTopComedores();
-    cargarDonacionesPorTipo();
-}, 300000); // 5 minutos

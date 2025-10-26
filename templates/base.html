@@ -28,6 +28,7 @@
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Comedores Cali">
@@ -54,14 +55,6 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Loader -->
-    <div id="loader" class="loader">
-        <div class="loader-spinner">
-            <i class="fas fa-utensils fa-3x"></i>
-            <p>Cargando comedores...</p>
-        </div>
-    </div>
-    
     <!-- Main Content -->
     <div id="app">
         {% block content %}{% endblock %}

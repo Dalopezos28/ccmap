@@ -13,7 +13,14 @@
       "Bash(pip3 install:*)",
       "Bash(python generate_icons.py:*)",
       "Bash(netstat:*)",
-      "Bash(ss:*)"
+      "Bash(ss:*)",
+      "Bash(time curl -s http://localhost:8000/api/comedores/geojson/)",
+      "Bash(claude mcp:*)",
+      "Read(//home/dalopezos28/.config/claude/**)",
+      "Read(//home/dalopezos28/**)",
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

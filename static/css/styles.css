@@ -52,6 +52,12 @@ body {
 .loader.hidden {
     opacity: 0;
     visibility: hidden;
+    pointer-events: none;
+}
+
+/* Clase genérica para ocultar elementos */
+.hidden {
+    display: none !important;
 }
 
 .loader-spinner {

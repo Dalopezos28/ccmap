@@ -19,16 +19,35 @@ let currentFilters = {
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', function() {
-    // Cargar preferencias de accesibilidad
-    loadAccessibilityPreferences();
+    try {
+        // Cargar preferencias de accesibilidad
+        loadAccessibilityPreferences();
 
-    updateLoaderProgress(20, 'Inicializando mapa...');
-    initMap();
+        updateLoaderProgress(20, 'Inicializando mapa...');
+        initMap();
 
-    updateLoaderProgress(40, 'Cargando comedores cercanos...');
-    loadComedores();
+        updateLoaderProgress(40, 'Cargando comedores cercanos...');
+        loadComedores();
 
-    setupEventListeners();
+        setupEventListeners();
+        
+        // Timeout de seguridad: si después de 10 segundos no se ha ocultado el loader, forzar ocultarlo
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader && !loader.classList.contains('hidden')) {
+                console.warn('Timeout: Forzando cierre del loader después de 10 segundos');
+                loader.classList.add('hidden');
+                showToast('⚠️ Error al cargar algunos datos. Por favor, recarga la página.', 'error');
+            }
+        }, 10000);
+    } catch (error) {
+        console.error('Error en la inicialización:', error);
+        const loader = document.getElementById('loader');
+        if (loader) {
+            loader.classList.add('hidden');
+        }
+        alert('Error al cargar la aplicación. Por favor, recarga la página.');
+    }
 });
 
 // ===== CARGAR PREFERENCIAS DE ACCESIBILIDAD =====
@@ -129,9 +148,11 @@ function addClusterStyles() {
 // ===== CARGAR COMEDORES DESDE API =====
 async function loadComedores() {
     try {
+        const apiUrl = `${window.API_BASE_URL}/comedores/geojson/`;
+        
         updateLoaderProgress(60, 'Descargando datos...');
-        const response = await fetch(`${window.API_BASE_URL}/comedores/geojson/`);
-
+        const response = await fetch(apiUrl);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -149,7 +170,10 @@ async function loadComedores() {
 
         updateLoaderProgress(100, '¡Listo!');
         setTimeout(() => {
-            document.getElementById('loader').classList.add('hidden');
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.classList.add('hidden');
+            }
         }, 500);
 
         showToast(`${comedoresData.length} comedores cargados correctamente`, 'success');
@@ -160,24 +184,32 @@ async function loadComedores() {
         const cachedData = localStorage.getItem('comedores_cache');
 
         if (cachedData) {
-            const timestamp = localStorage.getItem('comedores_cache_timestamp');
-            const hoursAgo = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
+            try {
+                const timestamp = localStorage.getItem('comedores_cache_timestamp');
+                const hoursAgo = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
 
-            updateLoaderProgress(80, 'Cargando datos guardados...');
-            comedoresData = JSON.parse(cachedData);
-            displayComedores(comedoresData);
-            updateStats();
+                updateLoaderProgress(80, 'Cargando datos guardados...');
+                comedoresData = JSON.parse(cachedData);
+                displayComedores(comedoresData);
+                updateStats();
 
-            updateLoaderProgress(100, 'Datos cargados desde caché');
-            setTimeout(() => {
-                document.getElementById('loader').classList.add('hidden');
-            }, 500);
+                updateLoaderProgress(100, 'Datos cargados desde caché');
+                setTimeout(() => {
+                    if (document.getElementById('loader')) {
+                        document.getElementById('loader').classList.add('hidden');
+                    }
+                }, 500);
 
-            showToast(`Modo offline: Datos de hace ${hoursAgo} horas`, 'info');
-        } else {
-            // Si no hay cache, cargar datos estáticos de emergencia
-            loadFallbackData();
+                showToast(`Modo offline: Datos de hace ${hoursAgo} horas`, 'info');
+                return;
+            } catch (cacheError) {
+                console.error('Error al cargar desde cache:', cacheError);
+                // Continuar al fallback
+            }
         }
+        
+        // Si no hay cache o falla, cargar datos estáticos de emergencia
+        loadFallbackData();
     }
 }
 
@@ -263,33 +295,66 @@ function loadFallbackData() {
 
 // ===== MOSTRAR COMEDORES EN EL MAPA =====
 function displayComedores(features) {
-    // Limpiar marcadores existentes
-    markersLayer.clearLayers();
-    
-    features.forEach(feature => {
-        const props = feature.properties;
-        const coords = feature.geometry.coordinates;
+    try {
+        // Limpiar marcadores existentes
+        markersLayer.clearLayers();
         
-        // Crear icono personalizado
-        const iconClass = props.esta_abierto ? 'marker-open' : 'marker-closed';
-        const icon = L.divIcon({
-            html: `<div class="marker-icon ${iconClass}"><i class="fas fa-utensils"></i></div>`,
-            className: 'custom-marker',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
+        // Si no hay features, mostrar error
+        if (!features || features.length === 0) {
+            showToast('No se encontraron comedores', 'error');
+            // Aún así, ocultar el loader
+            setTimeout(() => {
+                if (document.getElementById('loader')) {
+                    document.getElementById('loader').classList.add('hidden');
+                }
+            }, 500);
+            return;
+        }
+        
+        features.forEach(feature => {
+            try {
+                const props = feature.properties;
+                const coords = feature.geometry.coordinates;
+                
+                // Validar coordenadas
+                if (!coords || coords.length !== 2) {
+                    console.error('Coordenadas inválidas:', feature);
+                    return;
+                }
+                
+                // Crear icono personalizado
+                const iconClass = props.esta_abierto ? 'marker-open' : 'marker-closed';
+                const icon = L.divIcon({
+                    html: `<div class="marker-icon ${iconClass}"><i class="fas fa-utensils"></i></div>`,
+                    className: 'custom-marker',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
+                });
+                
+                // Crear marcador
+                const marker = L.marker([coords[1], coords[0]], { icon: icon });
+                
+                // Evento click
+                marker.on('click', () => showComedorModal(props.id));
+                
+                // Añadir a la capa de marcadores
+                markersLayer.addLayer(marker);
+            } catch (error) {
+                console.error('Error al procesar feature:', error, feature);
+            }
         });
         
-        // Crear marcador
-        const marker = L.marker([coords[1], coords[0]], { icon: icon });
-        
-        // Evento click
-        marker.on('click', () => showComedorModal(props.id));
-        
-        // Añadir a la capa de marcadores
-        markersLayer.addLayer(marker);
-    });
-    
-    updateStats();
+        updateStats();
+    } catch (error) {
+        console.error('Error en displayComedores:', error);
+        showToast('Error al mostrar comedores', 'error');
+        // Forzar ocultar el loader
+        setTimeout(() => {
+            if (document.getElementById('loader')) {
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }, 500);
+    }
 }
 
 // ===== MOSTRAR MODAL DE COMEDOR =====

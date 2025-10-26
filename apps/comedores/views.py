@@ -43,7 +43,7 @@ class ComedorViewSet(viewsets.ModelViewSet):
         
         # Filtrar por estado (abierto/cerrado)
         estado = self.request.query_params.get('estado', None)
-        if estado == 'abierto':
+        if estado == 'abierto' or estado == 'Abiertos ahora':
             # Filtrar comedores abiertos ahora
             ahora = timezone.now()
             hora_actual = ahora.time()
@@ -97,10 +97,19 @@ class ComedorViewSet(viewsets.ModelViewSet):
         para usar directamente con Leaflet
         """
         queryset = self.filter_queryset(self.get_queryset())
-        
+
+        # OPTIMIZACIÓN: Usar annotate para calcular calificación promedio en DB
+        # Esto evita el problema N+1 de hacer una query por cada comedor
+        queryset = queryset.annotate(
+            calificacion_avg=Avg('comentarios__calificacion')
+        )
+
         # Construir GeoJSON manualmente
         features = []
         for comedor in queryset:
+            # Calcular calificación: usar anotación si existe, sino 0
+            calificacion = round(comedor.calificacion_avg, 1) if comedor.calificacion_avg else 0
+
             feature = {
                 'type': 'Feature',
                 'id': comedor.id,
@@ -127,7 +136,7 @@ class ComedorViewSet(viewsets.ModelViewSet):
                     'foto_principal': comedor.foto_principal.url if comedor.foto_principal else None,
                     'estado_activo': comedor.estado_activo,
                     'esta_abierto': comedor.esta_abierto_ahora,
-                    'calificacion_promedio': comedor.calificacion_promedio(),
+                    'calificacion_promedio': calificacion,  # Usar valor pre-calculado
                     # Nuevos campos sociales
                     'es_gratuito': comedor.es_gratuito,
                     'precio_texto': comedor.precio_texto,
@@ -150,12 +159,12 @@ class ComedorViewSet(viewsets.ModelViewSet):
                 }
             }
             features.append(feature)
-        
+
         geojson = {
             'type': 'FeatureCollection',
             'features': features
         }
-        
+
         return Response(geojson)
     
     @action(detail=False, methods=['get'])
