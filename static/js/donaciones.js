@@ -1,6 +1,7 @@
 /**
  * donaciones.js
  * Manejo del formulario wizard de donaciones (3 pasos)
+ * Versión mejorada con validación en tiempo real y guardado de progreso
  */
 
 // Elementos del DOM
@@ -16,33 +17,47 @@ let datosUbicacionDonacion = {
     longitud: null
 };
 
+// Reglas de validación por paso
+const validationRulesPaso1 = {
+    'donacion-nombre': {
+        required: true,
+        minLength: 3
+    },
+    'donacion-telefono': {
+        required: true,
+        phone: true
+    }
+};
+
+const validationRulesPaso2 = {
+    'donacion-descripcion': {
+        required: true,
+        minLength: 10
+    }
+};
+
+// ===== EVENTOS =====
+
 // Abrir modal
 btnDonaciones.addEventListener('click', () => {
-    modalDonaciones.style.display = 'flex';
+    Modal.open('modal-donaciones');
     irAPaso(1);
+    cargarProgresoGuardado();
 });
 
 // Cerrar modal
 btnCloseModalDonaciones.addEventListener('click', () => {
-    modalDonaciones.style.display = 'none';
-    resetWizard();
+    cerrarModalDonaciones();
 });
 
-// Cerrar modal al hacer clic fuera
-modalDonaciones.addEventListener('click', (e) => {
-    if (e.target === modalDonaciones) {
-        modalDonaciones.style.display = 'none';
-        resetWizard();
-    }
-});
-
-// Cerrar modal con ESC
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalDonaciones.style.display === 'flex') {
-        modalDonaciones.style.display = 'none';
-        resetWizard();
-    }
-});
+/**
+ * Cerrar modal y guardar progreso
+ */
+function cerrarModalDonaciones() {
+    // Guardar progreso antes de cerrar
+    guardarProgreso();
+    Modal.close('modal-donaciones');
+}
 
 /**
  * Navegar entre pasos del wizard
@@ -53,6 +68,8 @@ function siguientePaso(paso) {
         if (!validarPasoActual()) {
             return;
         }
+        // Guardar progreso al avanzar
+        guardarProgreso();
     }
 
     irAPaso(paso);
@@ -93,22 +110,10 @@ function irAPaso(paso) {
  */
 function validarPasoActual() {
     if (pasoActual === 1) {
-        // Validar datos del donante
-        const nombre = document.getElementById('donacion-nombre').value.trim();
-        const telefono = document.getElementById('donacion-telefono').value.trim();
+        const isValid = FormValidator.validateForm(formDonaciones, validationRulesPaso1);
 
-        if (!nombre) {
-            mostrarNotificacion('Por favor ingresa tu nombre o el de tu organización', 'error');
-            return false;
-        }
-
-        if (!telefono) {
-            mostrarNotificacion('Por favor ingresa un teléfono de contacto', 'error');
-            return false;
-        }
-
-        if (!validarTelefono(telefono)) {
-            mostrarNotificacion('Por favor ingresa un número de teléfono válido (Ej: +57 300 123 4567)', 'error');
+        if (!isValid) {
+            Toast.error('Por favor completa todos los campos del paso 1 correctamente');
             return false;
         }
 
@@ -116,11 +121,10 @@ function validarPasoActual() {
     }
 
     if (pasoActual === 2) {
-        // Validar detalles de la donación
-        const descripcion = document.getElementById('donacion-descripcion').value.trim();
+        const isValid = FormValidator.validateForm(formDonaciones, validationRulesPaso2);
 
-        if (!descripcion) {
-            mostrarNotificacion('Por favor describe qué deseas donar', 'error');
+        if (!isValid) {
+            Toast.error('Por favor describe qué deseas donar');
             return false;
         }
 
@@ -133,53 +137,110 @@ function validarPasoActual() {
 /**
  * Obtener ubicación del donante
  */
-function obtenerUbicacionDonacion() {
-    if (!navigator.geolocation) {
-        mostrarNotificacion('Tu navegador no soporta geolocalización', 'error');
-        return;
-    }
-
-    // Mostrar indicador de carga
+async function obtenerUbicacionDonacion() {
     const btn = event.target.closest('button');
     const textoOriginal = btn.innerHTML;
+
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...';
 
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            datosUbicacionDonacion.latitud = position.coords.latitude;
-            datosUbicacionDonacion.longitud = position.coords.longitude;
+    try {
+        const location = await getUserLocation();
 
-            // Mostrar coordenadas
-            const display = document.getElementById('coords-donacion-display');
-            display.textContent = `✓ Ubicación obtenida: ${datosUbicacionDonacion.latitud.toFixed(6)}, ${datosUbicacionDonacion.longitud.toFixed(6)}`;
-            display.style.display = 'block';
+        datosUbicacionDonacion.latitud = location.lat;
+        datosUbicacionDonacion.longitud = location.lng;
 
-            mostrarNotificacion('Ubicación obtenida correctamente', 'success');
+        // Mostrar coordenadas
+        const display = document.getElementById('coords-donacion-display');
+        display.textContent = `✓ Ubicación obtenida: ${datosUbicacionDonacion.latitud.toFixed(6)}, ${datosUbicacionDonacion.longitud.toFixed(6)}`;
+        display.style.display = 'block';
 
-            // Restaurar botón
-            btn.disabled = false;
-            btn.innerHTML = textoOriginal;
-        },
-        (error) => {
-            console.error('Error al obtener ubicación:', error);
-            mostrarNotificacion('No se pudo obtener tu ubicación. Por favor ingresa tu barrio manualmente.', 'error');
-
-            // Restaurar botón
-            btn.disabled = false;
-            btn.innerHTML = textoOriginal;
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-        }
-    );
+        Toast.success('Ubicación obtenida correctamente');
+    } catch (error) {
+        console.error('Error al obtener ubicación:', error);
+        Toast.error('No se pudo obtener tu ubicación. Por favor ingresa tu barrio manualmente.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+    }
 }
 
-// Exponer función globalmente para usar en onclick
+// Exponer funciones globalmente para usar en onclick
 window.obtenerUbicacionDonacion = obtenerUbicacionDonacion;
 window.siguientePaso = siguientePaso;
+
+/**
+ * Guardar progreso del formulario en localStorage
+ */
+function guardarProgreso() {
+    const progreso = {
+        paso: pasoActual,
+        datos: {
+            nombre: document.getElementById('donacion-nombre')?.value || '',
+            telefono: document.getElementById('donacion-telefono')?.value || '',
+            email: document.getElementById('donacion-email')?.value || '',
+            tipo: document.getElementById('donacion-tipo')?.value || 'ALIMENTOS',
+            descripcion: document.getElementById('donacion-descripcion')?.value || '',
+            cantidad: document.getElementById('donacion-cantidad')?.value || '',
+            valor: document.getElementById('donacion-valor')?.value || '',
+            direccion: document.getElementById('donacion-direccion')?.value || '',
+            barrio: document.getElementById('donacion-barrio')?.value || ''
+        },
+        ubicacion: datosUbicacionDonacion,
+        timestamp: Date.now()
+    };
+
+    saveToStorage('donacion_progreso', progreso);
+}
+
+/**
+ * Cargar progreso guardado
+ */
+function cargarProgresoGuardado() {
+    const progreso = loadFromStorage('donacion_progreso');
+
+    if (!progreso) return;
+
+    // Verificar que el progreso no sea muy antiguo (más de 1 hora)
+    const unHora = 60 * 60 * 1000;
+    if (Date.now() - progreso.timestamp > unHora) {
+        localStorage.removeItem('donacion_progreso');
+        return;
+    }
+
+    // Preguntar si quiere continuar
+    if (confirm('Tienes una donación en progreso. ¿Deseas continuar donde lo dejaste?')) {
+        // Restaurar datos
+        const datos = progreso.datos;
+        if (datos.nombre) document.getElementById('donacion-nombre').value = datos.nombre;
+        if (datos.telefono) document.getElementById('donacion-telefono').value = datos.telefono;
+        if (datos.email) document.getElementById('donacion-email').value = datos.email;
+        if (datos.tipo) document.getElementById('donacion-tipo').value = datos.tipo;
+        if (datos.descripcion) document.getElementById('donacion-descripcion').value = datos.descripcion;
+        if (datos.cantidad) document.getElementById('donacion-cantidad').value = datos.cantidad;
+        if (datos.valor) document.getElementById('donacion-valor').value = datos.valor;
+        if (datos.direccion) document.getElementById('donacion-direccion').value = datos.direccion;
+        if (datos.barrio) document.getElementById('donacion-barrio').value = datos.barrio;
+
+        // Restaurar ubicación
+        if (progreso.ubicacion) {
+            datosUbicacionDonacion = progreso.ubicacion;
+            if (datosUbicacionDonacion.latitud) {
+                const display = document.getElementById('coords-donacion-display');
+                display.textContent = `✓ Ubicación guardada: ${datosUbicacionDonacion.latitud.toFixed(6)}, ${datosUbicacionDonacion.longitud.toFixed(6)}`;
+                display.style.display = 'block';
+            }
+        }
+
+        // Ir al paso guardado
+        irAPaso(progreso.paso || 1);
+
+        Toast.info('Progreso restaurado. Puedes continuar tu donación.');
+    } else {
+        // Limpiar progreso guardado
+        localStorage.removeItem('donacion_progreso');
+    }
+}
 
 /**
  * Enviar formulario de donación
@@ -219,6 +280,7 @@ formDonaciones.addEventListener('submit', async (e) => {
     const btnSubmit = formDonaciones.querySelector('button[type="submit"]');
     const textoOriginal = btnSubmit.innerHTML;
     btnSubmit.disabled = true;
+    btnSubmit.classList.add('loading');
     btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando donación...';
 
     try {
@@ -239,18 +301,21 @@ formDonaciones.addEventListener('submit', async (e) => {
         const resultado = await response.json();
 
         // Preparar mensaje de éxito
-        let mensajeExito = `¡Donación registrada exitosamente! 🎉<br>ID: ${resultado.id}`;
+        let mensajeExito = `<strong>¡Donación registrada exitosamente!</strong><br>ID: ${resultado.id}`;
 
         // Si se asignó un comedor automáticamente, mostrarlo
         if (resultado.comedor_asignado && resultado.comedor_nombre) {
-            mensajeExito += `<br><br><strong>Tu donación fue asignada a:</strong><br>${resultado.comedor_nombre}`;
+            mensajeExito += `<br><br><strong>Asignada a:</strong><br>${resultado.comedor_nombre}`;
 
             if (resultado.distancia_km) {
                 mensajeExito += `<br><small>Distancia: ${resultado.distancia_km.toFixed(2)} km</small>`;
             }
         }
 
-        mostrarNotificacion(mensajeExito, 'success');
+        Toast.success(mensajeExito, 8000);
+
+        // Limpiar progreso guardado
+        localStorage.removeItem('donacion_progreso');
 
         // Si hay comedor asignado y mapa global disponible, mostrar en el mapa
         if (resultado.comedor_asignado && typeof map !== 'undefined' && resultado.comedor_info) {
@@ -258,26 +323,23 @@ formDonaciones.addEventListener('submit', async (e) => {
                 const comedor = resultado.comedor_info;
                 if (comedor.latitud && comedor.longitud) {
                     map.setView([comedor.latitud, comedor.longitud], 15);
-                    // TODO: Abrir popup del comedor si existe
                 }
             }, 2000);
         }
 
         // Cerrar modal y resetear
         setTimeout(() => {
-            modalDonaciones.style.display = 'none';
+            Modal.close('modal-donaciones');
             resetWizard();
         }, 3000);
 
     } catch (error) {
         console.error('Error al registrar donación:', error);
-        mostrarNotificacion(
-            `Error al registrar la donación: ${error.message}<br>Por favor intenta nuevamente.`,
-            'error'
-        );
+        Toast.error(`Error al registrar la donación: ${error.message}<br>Por favor intenta nuevamente.`);
     } finally {
         // Restaurar botón
         btnSubmit.disabled = false;
+        btnSubmit.classList.remove('loading');
         btnSubmit.innerHTML = textoOriginal;
     }
 });
@@ -299,159 +361,31 @@ function resetWizard() {
         display.style.display = 'none';
     }
 
+    // Limpiar estados de validación
+    formDonaciones.querySelectorAll('.form-control').forEach(input => {
+        input.classList.remove('is-valid', 'is-invalid');
+    });
+
     // Volver al paso 1
     irAPaso(1);
 }
 
-/**
- * Validar formato de teléfono colombiano
- */
-function validarTelefono(telefono) {
-    const regex = /^(\+57\s?)?[3][0-9]{9}$/;
-    const telefonoLimpio = telefono.replace(/\s/g, '').replace('+57', '');
-    return regex.test(`+57${telefonoLimpio}`);
-}
+// ===== CONFIGURACIÓN DE VALIDACIÓN EN TIEMPO REAL =====
+document.addEventListener('DOMContentLoaded', () => {
+    if (formDonaciones) {
+        // Configurar validación para paso 1
+        FormValidator.setupRealtimeValidation(formDonaciones, validationRulesPaso1);
 
-/**
- * Mostrar notificaciones (reutilizado de alertas.js con mejoras)
- */
-function mostrarNotificacion(mensaje, tipo = 'info') {
-    const notificacion = document.createElement('div');
-    notificacion.className = `notificacion notificacion-${tipo}`;
-    notificacion.innerHTML = `
-        <div class="notificacion-contenido">
-            <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
-            <span>${mensaje}</span>
-        </div>
-    `;
+        // Configurar validación para paso 2
+        FormValidator.setupRealtimeValidation(formDonaciones, validationRulesPaso2);
 
-    notificacion.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 20px;
-        background: ${tipo === 'success' ? '#4caf50' : tipo === 'error' ? '#f44336' : '#2196f3'};
-        color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        z-index: 10000;
-        animation: slideInRight 0.3s ease-out;
-        max-width: 400px;
-    `;
-
-    document.body.appendChild(notificacion);
-
-    setTimeout(() => {
-        notificacion.style.animation = 'slideOutRight 0.3s ease-out';
-        setTimeout(() => {
-            document.body.removeChild(notificacion);
-        }, 300);
-    }, 5000);
-}
-
-// Agregar estilos para el wizard si no existen
-if (!document.querySelector('#wizard-styles')) {
-    const style = document.createElement('style');
-    style.id = 'wizard-styles';
-    style.textContent = `
-        .wizard-progress {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            position: relative;
-        }
-
-        .wizard-progress::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 25%;
-            right: 25%;
-            height: 2px;
-            background: #e0e0e0;
-            z-index: 0;
-        }
-
-        .wizard-step {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-            position: relative;
-            z-index: 1;
-        }
-
-        .wizard-step-number {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e0e0e0;
-            color: #757575;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            margin-bottom: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .wizard-step.active .wizard-step-number {
-            background: var(--primary-color, #2196f3);
-            color: white;
-            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
-        }
-
-        .wizard-step.completed .wizard-step-number {
-            background: var(--success-color, #4caf50);
-            color: white;
-        }
-
-        .wizard-step.completed .wizard-step-number::before {
-            content: '\\f00c';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-        }
-
-        .wizard-step span {
-            font-size: 14px;
-            color: #757575;
-            font-weight: 500;
-        }
-
-        .wizard-step.active span {
-            color: var(--primary-color, #2196f3);
-            font-weight: 700;
-        }
-
-        .wizard-step.completed span {
-            color: var(--success-color, #4caf50);
-        }
-
-        .wizard-content {
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
+        // Auto-guardar progreso cada 30 segundos
+        setInterval(() => {
+            if (Modal.openModals.includes(modalDonaciones)) {
+                guardarProgreso();
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+        }, 30000);
+    }
+});
 
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--primary-color, #2196f3);
-            color: var(--primary-color, #2196f3);
-        }
-
-        .btn-outline:hover {
-            background: var(--primary-color, #2196f3);
-            color: white;
-        }
-    `;
-    document.head.appendChild(style);
-}
+console.log('✓ Sistema de donaciones cargado correctamente');

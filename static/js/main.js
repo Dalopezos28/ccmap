@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (loader && !loader.classList.contains('hidden')) {
                 console.warn('Timeout: Forzando cierre del loader después de 10 segundos');
                 loader.classList.add('hidden');
-                showToast('⚠️ Error al cargar algunos datos. Por favor, recarga la página.', 'error');
+                Toast.error('⚠️ Error al cargar algunos datos. Por favor, recarga la página.');
             }
         }, 10000);
     } catch (error) {
@@ -142,7 +142,7 @@ async function loadComedores() {
             }
         }, 500);
 
-        showToast(`${comedoresData.length} comedores cargados correctamente`, 'success');
+        Toast.success(`${comedoresData.length} comedores cargados correctamente`);
     } catch (error) {
         console.error('Error al cargar comedores:', error);
 
@@ -166,7 +166,7 @@ async function loadComedores() {
                     }
                 }, 500);
 
-                showToast(`Modo offline: Datos de hace ${hoursAgo} horas`, 'info');
+                Toast.info(`Modo offline: Datos de hace ${hoursAgo} horas`);
                 return;
             } catch (cacheError) {
                 console.error('Error al cargar desde cache:', cacheError);
@@ -256,7 +256,7 @@ function loadFallbackData() {
         document.getElementById('loader').classList.add('hidden');
     }, 500);
 
-    showToast('⚠️ Sin conexión: Mostrando comedores básicos', 'error');
+    Toast.error('⚠️ Sin conexión: Mostrando comedores básicos');
 }
 
 // ===== MOSTRAR COMEDORES EN EL MAPA =====
@@ -267,7 +267,7 @@ function displayComedores(features) {
         
         // Si no hay features, mostrar error
         if (!features || features.length === 0) {
-            showToast('No se encontraron comedores', 'error');
+            Toast.error('No se encontraron comedores');
             // Aún así, ocultar el loader
             setTimeout(() => {
                 if (document.getElementById('loader')) {
@@ -313,7 +313,7 @@ function displayComedores(features) {
         updateStats();
     } catch (error) {
         console.error('Error en displayComedores:', error);
-        showToast('Error al mostrar comedores', 'error');
+        Toast.error('Error al mostrar comedores');
         // Forzar ocultar el loader
         setTimeout(() => {
             if (document.getElementById('loader')) {
@@ -329,34 +329,29 @@ async function showComedorModal(comedorId) {
     const modalLoader = document.getElementById('modal-loader');
     const modalContentBody = document.getElementById('modal-content-body');
 
-    // Guardar elemento con foco actual
-    window.lastFocusedElement = document.activeElement;
+    // Abrir modal con el sistema unificado
+    Modal.open('modal-comedor');
 
-    // Mostrar modal con loader
-    modal.classList.add('show');
+    // Mostrar loader
     modalLoader.style.display = 'block';
     modalContentBody.style.display = 'none';
-    
+
     try {
         // Cargar datos del comedor
         const response = await fetch(`${window.API_BASE_URL}/comedores/${comedorId}/`);
         const comedor = await response.json();
-        
+
         // Llenar contenido del modal
         fillModalContent(comedor);
-        
+
         // Ocultar loader y mostrar contenido
         modalLoader.style.display = 'none';
         modalContentBody.style.display = 'block';
 
-        // Enfocar el botón de cerrar para accesibilidad
-        setTimeout(() => {
-            document.getElementById('btn-close-modal').focus();
-        }, 100);
     } catch (error) {
         console.error('Error al cargar comedor:', error);
-        showToast('Error al cargar la información', 'error');
-        closeModal();
+        Toast.error('Error al cargar la información');
+        Modal.close('modal-comedor');
     }
 }
 
@@ -617,14 +612,9 @@ function fillModalContent(comedor) {
 }
 
 // ===== CERRAR MODAL =====
+// Función deprecada - ahora usa Modal.close('modal-comedor')
 function closeModal() {
-    const modal = document.getElementById('modal-comedor');
-    modal.classList.remove('show');
-
-    // Restaurar foco al elemento que abrió el modal
-    if (window.lastFocusedElement) {
-        window.lastFocusedElement.focus();
-    }
+    Modal.close('modal-comedor');
 }
 
 // ===== SETUP EVENT LISTENERS =====
@@ -642,11 +632,8 @@ function setupEventListeners() {
     // Modo simple
     document.getElementById('btn-modo-simple').addEventListener('click', mostrarModoSimple);
     
-    // Cerrar modal
-    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
-    document.getElementById('modal-comedor').addEventListener('click', (e) => {
-        if (e.target.id === 'modal-comedor') closeModal();
-    });
+    // Cerrar modal (ya manejado por el sistema unificado en utils.js)
+    document.getElementById('btn-close-modal').addEventListener('click', () => Modal.close('modal-comedor'));
     
     // Filtros
     document.getElementById('filter-radio').addEventListener('input', (e) => {
@@ -683,7 +670,7 @@ function toggleAltoContraste() {
     localStorage.setItem('high_contrast', isActive);
 
     const message = isActive ? 'Modo alto contraste activado' : 'Modo normal activado';
-    showToast(message, 'info');
+    Toast.info(message);
 }
 
 // ===== NAVEGACIÓN POR TECLADO =====
@@ -768,11 +755,11 @@ function toggleSidebar() {
 // ===== OBTENER UBICACIÓN DEL USUARIO =====
 function getUserLocation() {
     if (!navigator.geolocation) {
-        showToast('Geolocalización no disponible', 'error');
+        Toast.error('Geolocalización no disponible');
         return;
     }
     
-    showToast('Obteniendo tu ubicación...', 'info');
+    Toast.info('Obteniendo tu ubicación...');
     
     navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -799,14 +786,14 @@ function getUserLocation() {
             // Centrar mapa en ubicación del usuario
             map.setView([userLocation.lat, userLocation.lng], 14);
             
-            showToast('Ubicación encontrada', 'success');
+            Toast.success('Ubicación encontrada');
             
             // Cargar comedores cercanos
             loadComedoresCercanos();
         },
         (error) => {
             console.error('Error al obtener ubicación:', error);
-            showToast('No se pudo obtener tu ubicación', 'error');
+            Toast.error('No se pudo obtener tu ubicación');
         }
     );
 }
@@ -821,7 +808,7 @@ async function loadComedoresCercanos() {
         );
         const data = await response.json();
         
-        showToast(`${data.length} comedores encontrados cerca de ti`, 'success');
+        Toast.success(`${data.length} comedores encontrados cerca de ti`);
     } catch (error) {
         console.error('Error al cargar comedores cercanos:', error);
     }
@@ -850,7 +837,7 @@ function applyFilters() {
     });
     
     displayComedores(filteredComedores);
-    showToast(`${filteredComedores.length} comedores encontrados`, 'info');
+    Toast.info(`${filteredComedores.length} comedores encontrados`);
 }
 
 // ===== LIMPIAR FILTROS =====
@@ -871,7 +858,7 @@ function clearFilters() {
     };
     
     displayComedores(comedoresData);
-    showToast('Filtros limpiados', 'info');
+    Toast.info('Filtros limpiados');
 }
 
 // ===== BÚSQUEDA =====
@@ -907,7 +894,7 @@ function updateStats() {
 // ===== TOGGLE FAVORITO =====
 function toggleFavorito(comedorId) {
     // TODO: Implementar con autenticación
-    showToast('Funcionalidad próximamente disponible', 'info');
+    Toast.info('Funcionalidad próximamente disponible');
 }
 
 // ===== COMPARTIR COMEDOR =====
@@ -922,7 +909,7 @@ function compartirComedor(comedor) {
         // Copiar al portapapeles
         const url = window.location.href;
         navigator.clipboard.writeText(url);
-        showToast('Enlace copiado al portapapeles', 'success');
+        Toast.success('Enlace copiado al portapapeles');
     }
 }
 
@@ -955,44 +942,7 @@ function updateLoaderProgress(percentage, message) {
     }
 }
 
-// Mostrar notificación toast
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    
-    const icons = {
-        success: 'fa-check-circle',
-        error: 'fa-exclamation-circle',
-        info: 'fa-info-circle'
-    };
-    
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <i class="fas ${icons[type]}"></i>
-        <span class="toast-message">${message}</span>
-    `;
-    
-    container.appendChild(toast);
-    
-    // Auto-remover después de 3 segundos
-    setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.4s ease-out';
-        setTimeout(() => toast.remove(), 400);
-    }, 3000);
-}
-
-// Debounce para búsqueda
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+// Funciones de utilidad (showToast y debounce) ahora están en utils.js
 
 // Formatear días de atención
 function formatDiasAtencion(dias) {
@@ -1020,14 +970,11 @@ function formatTipoComida(tipo) {
     return map[tipo] || tipo;
 }
 
-// Formatear números
-function formatNumber(num) {
-    return new Intl.NumberFormat('es-CO').format(num);
-}
+// formatNumber ahora está en utils.js
 
 // ===== MODO EMERGENCIA =====
 function modoEmergencia() {
-    showToast('Buscando comedores disponibles AHORA...', 'info');
+    Toast.info('Buscando comedores disponibles AHORA...');
     
     // Filtrar solo comedores:
     // 1. Abiertos ahora
@@ -1042,7 +989,7 @@ function modoEmergencia() {
     });
     
     if (disponibles.length === 0) {
-        showToast('No hay comedores con cupos disponibles en este momento', 'error');
+        Toast.error('No hay comedores con cupos disponibles en este momento');
         return;
     }
     
@@ -1061,7 +1008,7 @@ function modoEmergencia() {
         map.setView([coords[1], coords[0]], 15);
     }
     
-    showToast(`${disponibles.length} comedor(es) con cupos disponibles AHORA`, 'success');
+    Toast.success(`${disponibles.length} comedor(es) con cupos disponibles AHORA`);
 }
 
 // ===== MODO SIMPLE =====
