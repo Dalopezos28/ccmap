@@ -19,13 +19,7 @@ let currentFilters = {
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', function() {
-    function initModals() {
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.classList.remove('show');
-        });
-    }
-
-    initModals();
+    // Ya no necesitamos initModals, el sistema de utils.js maneja los modales
 
     try {
         // Cargar preferencias de accesibilidad
@@ -69,20 +63,88 @@ function loadAccessibilityPreferences() {
 
 // ===== INICIALIZAR MAPA =====
 function initMap() {
-    // Crear mapa centrado en Cali
+    // Crear mapa centrado en Cali con configuración mejorada
     map = L.map('map', {
         center: [window.CALI_CENTER.lat, window.CALI_CENTER.lng],
         zoom: 13,
-        zoomControl: true,
-        maxZoom: 18,
-        minZoom: 11
+        zoomControl: false, // Lo añadiremos personalizado
+        maxZoom: 19,
+        minZoom: 2, // Permite ver todo el planeta
+        worldCopyJump: true, // Mejora navegación mundial
+        zoomAnimation: true,
+        fadeAnimation: true,
+        markerZoomAnimation: true
     });
-    
-    // Añadir capa de tiles con estilo claro elegante
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+
+    // ===== ESTILOS DE MAPA DISPONIBLES =====
+
+    // 1. Stamen Toner Lite (Elegante, minimalista, perfecto para marcadores)
+    const stamenTonerLite = L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+        maxZoom: 20,
+        minZoom: 2
+    });
+
+    // 2. CARTO Voyager (Moderno, colorido, excelente UX)
+    const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
-        maxZoom: 20
+        maxZoom: 20,
+        minZoom: 2
+    });
+
+    // 3. OpenStreetMap Standard (Clásico, detallado)
+    const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        minZoom: 2
+    });
+
+    // 4. CARTO Dark Matter (Modo oscuro elegante)
+    const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20,
+        minZoom: 2
+    });
+
+    // 5. Stamen Watercolor (Artístico, único) - BONUS
+    const stamenWatercolor = L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg', {
+        attribution: '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+        maxZoom: 16,
+        minZoom: 2
+    });
+
+    // Añadir capa por defecto (Voyager - el más elegante)
+    cartoVoyager.addTo(map);
+
+    // ===== CONTROL DE CAPAS (Selector de estilos) =====
+    const baseMaps = {
+        "🎨 Voyager (Recomendado)": cartoVoyager,
+        "📍 Toner Lite (Minimalista)": stamenTonerLite,
+        "🗺️ OpenStreetMap": osmStandard,
+        "🌙 Modo Oscuro": cartoDark,
+        "🎭 Acuarela (Artístico)": stamenWatercolor
+    };
+
+    // Añadir control de capas en la esquina superior derecha
+    L.control.layers(baseMaps, null, {
+        position: 'topright',
+        collapsed: true
+    }).addTo(map);
+
+    // ===== CONTROL DE ZOOM PERSONALIZADO =====
+    L.control.zoom({
+        position: 'bottomright',
+        zoomInTitle: 'Acercar',
+        zoomOutTitle: 'Alejar'
+    }).addTo(map);
+
+    // ===== ESCALA DEL MAPA =====
+    L.control.scale({
+        position: 'bottomleft',
+        imperial: false,
+        metric: true
     }).addTo(map);
     
     // Inicializar capa de marcadores con clustering
@@ -359,16 +421,18 @@ async function showComedorModal(comedorId) {
 function fillModalContent(comedor) {
     // Nombre
     document.getElementById('modal-nombre').textContent = comedor.nombre;
-    
-    // Foto
+
+    // Foto (opcional - solo si existe en el HTML)
     const modalImage = document.getElementById('modal-image');
     const modalFoto = document.getElementById('modal-foto');
-    if (comedor.foto_principal) {
-        modalFoto.src = comedor.foto_principal;
-        modalFoto.alt = comedor.nombre;
-    } else {
-        modalFoto.src = 'https://via.placeholder.com/800x300/16213e/00d4ff?text=Sin+Foto';
-        modalFoto.alt = 'Sin foto';
+    if (modalFoto) {
+        if (comedor.foto_principal) {
+            modalFoto.src = comedor.foto_principal;
+            modalFoto.alt = comedor.nombre;
+        } else {
+            modalFoto.src = 'https://via.placeholder.com/800x300/16213e/00d4ff?text=Sin+Foto';
+            modalFoto.alt = 'Sin foto';
+        }
     }
     
     // Badge de estado
@@ -413,19 +477,24 @@ function fillModalContent(comedor) {
     document.getElementById('modal-horario').textContent = 
         `${comedor.horario_apertura} - ${comedor.horario_cierre} (${formatDiasAtencion(comedor.dias_atencion)})`;
     
-    // Teléfono
+    // Teléfono (opcional)
     const detailTelefono = document.getElementById('detail-telefono');
     const modalTelefono = document.getElementById('modal-telefono');
-    if (comedor.telefono || comedor.celular) {
-        const telefonos = [comedor.telefono, comedor.celular].filter(t => t).join(' / ');
-        modalTelefono.textContent = telefonos;
-        detailTelefono.style.display = 'flex';
-    } else {
-        detailTelefono.style.display = 'none';
+    if (modalTelefono && detailTelefono) {
+        if (comedor.telefono || comedor.celular) {
+            const telefonos = [comedor.telefono, comedor.celular].filter(t => t).join(' / ');
+            modalTelefono.textContent = telefonos;
+            detailTelefono.style.display = 'flex';
+        } else {
+            detailTelefono.style.display = 'none';
+        }
     }
-    
-    // Tipo de comida
-    document.getElementById('modal-tipo-comida').textContent = formatTipoComida(comedor.tipo_comida);
+
+    // Tipo de comida (opcional)
+    const modalTipoComida = document.getElementById('modal-tipo-comida');
+    if (modalTipoComida) {
+        modalTipoComida.textContent = formatTipoComida(comedor.tipo_comida);
+    }
     
     // Descripción
     const detailDescripcion = document.getElementById('detail-descripcion');
@@ -524,91 +593,116 @@ function fillModalContent(comedor) {
         btnWhatsApp.style.display = 'none';
     }
     
-    // Información de cupos
+    // Información de cupos (opcional)
     const infoCupos = document.getElementById('info-cupos');
-    if (comedor.cupos_disponibles !== undefined) {
-        document.getElementById('cupos-numero').textContent = comedor.cupos_disponibles;
-        
+    if (infoCupos && comedor.cupos_disponibles !== undefined) {
+        const cuposNumero = document.getElementById('cupos-numero');
+        if (cuposNumero) {
+            cuposNumero.textContent = comedor.cupos_disponibles;
+        }
+
         const colaInfo = document.getElementById('cola-info');
-        if (comedor.cola_estimada && comedor.cola_estimada !== 'Sin cola') {
-            document.getElementById('cola-tiempo').textContent = comedor.cola_estimada;
+        if (colaInfo && comedor.cola_estimada && comedor.cola_estimada !== 'Sin cola') {
+            const colaTiempo = document.getElementById('cola-tiempo');
+            if (colaTiempo) {
+                colaTiempo.textContent = comedor.cola_estimada;
+            }
             colaInfo.style.display = 'flex';
-        } else {
+        } else if (colaInfo) {
             colaInfo.style.display = 'none';
         }
-        
+
         infoCupos.style.display = 'block';
-    } else {
+    } else if (infoCupos) {
         infoCupos.style.display = 'none';
     }
-    
-    // Información de transporte público
+
+    // Información de transporte público (opcional)
     const infoTransporte = document.getElementById('info-transporte');
-    if (comedor.rutas_transporte_publico) {
-        document.getElementById('transporte-rutas').textContent = comedor.rutas_transporte_publico;
-        
+    if (infoTransporte && comedor.rutas_transporte_publico) {
+        const transporteRutas = document.getElementById('transporte-rutas');
+        if (transporteRutas) {
+            transporteRutas.textContent = comedor.rutas_transporte_publico;
+        }
+
         const paradaInfo = document.getElementById('parada-info');
-        if (comedor.parada_bus_cercana) {
-            document.getElementById('transporte-parada').textContent = comedor.parada_bus_cercana;
+        if (paradaInfo && comedor.parada_bus_cercana) {
+            const transporteParada = document.getElementById('transporte-parada');
+            if (transporteParada) {
+                transporteParada.textContent = comedor.parada_bus_cercana;
+            }
             if (comedor.distancia_parada) {
-                document.getElementById('transporte-distancia').textContent = `📏 ${comedor.distancia_parada}`;
+                const transporteDistancia = document.getElementById('transporte-distancia');
+                if (transporteDistancia) {
+                    transporteDistancia.textContent = `📏 ${comedor.distancia_parada}`;
+                }
             }
             paradaInfo.style.display = 'flex';
-        } else {
+        } else if (paradaInfo) {
             paradaInfo.style.display = 'none';
         }
-        
+
         infoTransporte.style.display = 'block';
-    } else {
+    } else if (infoTransporte) {
         infoTransporte.style.display = 'none';
     }
     
-    // Servicios y accesibilidad
+    // Servicios y accesibilidad (opcional)
     const serviciosGrid = document.getElementById('servicios-grid');
-    let serviciosHTML = '';
-    
-    const servicios = [
-        { icon: 'child', text: 'Acepta niños', valor: comedor.acepta_ninos },
-        { icon: 'baby-carriage', text: 'Sillas para bebés', valor: comedor.tiene_silla_bebes },
-        { icon: 'box', text: 'Para llevar', valor: comedor.permite_llevar_comida },
-        { icon: 'wheelchair', text: 'Accesible silla de ruedas', valor: comedor.accesible_silla_ruedas },
-        { icon: 'restroom', text: 'Tiene baños', valor: comedor.tiene_banos },
-        { icon: 'grip-lines', text: 'Tiene rampa', valor: comedor.tiene_rampa },
-        { icon: 'gamepad', text: 'Área infantil', valor: comedor.tiene_area_infantil },
-    ];
-    
-    servicios.forEach(servicio => {
-        const clase = servicio.valor ? '' : 'disabled';
-        serviciosHTML += `
+    if (serviciosGrid) {
+        let serviciosHTML = '';
+
+        const servicios = [
+            { icon: 'child', text: 'Acepta niños', valor: comedor.acepta_ninos },
+            { icon: 'baby-carriage', text: 'Sillas para bebés', valor: comedor.tiene_silla_bebes },
+            { icon: 'box', text: 'Para llevar', valor: comedor.permite_llevar_comida },
+            { icon: 'wheelchair', text: 'Accesible silla de ruedas', valor: comedor.accesible_silla_ruedas },
+            { icon: 'restroom', text: 'Tiene baños', valor: comedor.tiene_banos },
+            { icon: 'grip-lines', text: 'Tiene rampa', valor: comedor.tiene_rampa },
+            { icon: 'gamepad', text: 'Área infantil', valor: comedor.tiene_area_infantil },
+        ];
+
+        servicios.forEach(servicio => {
+            const clase = servicio.valor ? '' : 'disabled';
+            serviciosHTML += `
             <div class="servicio-badge ${clase}">
                 <i class="fas fa-${servicio.icon}"></i>
                 <span>${servicio.text}</span>
             </div>
         `;
-    });
-    
-    serviciosGrid.innerHTML = serviciosHTML;
-    
-    // Requisitos de acceso (agregar a detalles)
-    if (comedor.requisitos_acceso && comedor.requisitos_acceso !== 'Sin requisitos especiales') {
-        const detailRequisitos = `
-            <div class="detail-item">
-                <i class="fas fa-id-card"></i>
-                <div>
-                    <strong>Requisitos</strong>
-                    <p>${comedor.requisitos_acceso}</p>
-                </div>
-            </div>
-        `;
-        document.querySelector('.modal-details').insertAdjacentHTML('beforeend', detailRequisitos);
+        });
+
+        serviciosGrid.innerHTML = serviciosHTML;
     }
     
+    // Requisitos de acceso (agregar a detalles - opcional)
+    if (comedor.requisitos_acceso && comedor.requisitos_acceso !== 'Sin requisitos especiales') {
+        const modalDetails = document.querySelector('.modal-details');
+        if (modalDetails) {
+            const detailRequisitos = `
+                <div class="detail-item">
+                    <i class="fas fa-id-card"></i>
+                    <div>
+                        <strong>Requisitos</strong>
+                        <p>${comedor.requisitos_acceso}</p>
+                    </div>
+                </div>
+            `;
+            modalDetails.insertAdjacentHTML('beforeend', detailRequisitos);
+        }
+    }
+
     // Botón Cómo Llegar
     const btnComoLlegar = document.getElementById('btn-como-llegar');
-    btnComoLlegar.href = `https://www.google.com/maps/dir/?api=1&destination=${comedor.latitud},${comedor.longitud}`;
-    
+    if (btnComoLlegar) {
+        btnComoLlegar.href = `https://www.google.com/maps/dir/?api=1&destination=${comedor.latitud},${comedor.longitud}`;
+    }
+
     // Botón Compartir
-    document.getElementById('btn-compartir').onclick = () => compartirComedor(comedor);
+    const btnCompartir = document.getElementById('btn-compartir');
+    if (btnCompartir) {
+        btnCompartir.onclick = () => compartirComedor(comedor);
+    }
 }
 
 // ===== CERRAR MODAL =====
@@ -650,7 +744,7 @@ function setupEventListeners() {
     
     // Ayuda
     document.getElementById('btn-ayuda').addEventListener('click', () => {
-        document.getElementById('modal-ayuda').classList.add('show');
+        Modal.open('modal-ayuda');
     });
 
     // Alto contraste
@@ -913,18 +1007,13 @@ function compartirComedor(comedor) {
     }
 }
 
-// ===== CERRAR MODAL AYUDA =====
+// ===== MODAL AYUDA =====
 function cerrarModalAyuda() {
-    document.getElementById('modal-ayuda').classList.remove('show');
+    Modal.close('modal-ayuda');
 }
 
-// Cerrar modal ayuda al hacer clic fuera
-document.addEventListener('click', (e) => {
-    const modalAyuda = document.getElementById('modal-ayuda');
-    if (e.target === modalAyuda) {
-        modalAyuda.classList.remove('show');
-    }
-});
+// Exponer globalmente para onclick en HTML
+window.cerrarModalAyuda = cerrarModalAyuda;
 
 // ===== UTILIDADES =====
 
@@ -1029,16 +1118,16 @@ function mostrarModoSimple() {
                 <p style="margin-top: 20px; font-size: 18px;">No hay comedores disponibles en este momento</p>
             </div>
         `;
-        modal.classList.add('show');
+        Modal.open('modal-simple');
         return;
     }
-    
+
     // Generar HTML para cada comedor
     let html = '';
     disponibles.forEach(feature => {
         const c = feature.properties;
         const coords = feature.geometry.coordinates;
-        
+
         html += `
             <div class="comedor-simple-card">
                 <div class="simple-header">
@@ -1048,7 +1137,7 @@ function mostrarModoSimple() {
                     </div>
                     <div class="simple-precio">${c.precio_texto}</div>
                 </div>
-                
+
                 <div class="simple-info">
                     <div class="simple-info-item">
                         <i class="fas fa-map-marker-alt"></i>
@@ -1071,12 +1160,12 @@ function mostrarModoSimple() {
                         </div>
                     ` : ''}
                 </div>
-                
+
                 <div class="simple-actions">
                     <a href="tel:+57${c.telefono_limpio || c.telefono}" class="btn btn-call">
                         <i class="fas fa-phone"></i> LLAMAR
                     </a>
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}" 
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}"
                        target="_blank" class="btn btn-primary">
                         <i class="fas fa-directions"></i> IR
                     </a>
@@ -1084,20 +1173,15 @@ function mostrarModoSimple() {
             </div>
         `;
     });
-    
+
     listaSimple.innerHTML = html;
-    modal.classList.add('show');
+    Modal.open('modal-simple');
 }
 
 function cerrarModoSimple() {
-    document.getElementById('modal-simple').classList.remove('show');
+    Modal.close('modal-simple');
 }
 
-// Cerrar modo simple al hacer clic fuera
-document.addEventListener('click', (e) => {
-    const modalSimple = document.getElementById('modal-simple');
-    if (e.target === modalSimple) {
-        modalSimple.classList.remove('show');
-    }
-});
+// Exponer globalmente para onclick en HTML
+window.cerrarModoSimple = cerrarModoSimple;
 
