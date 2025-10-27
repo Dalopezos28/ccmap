@@ -255,26 +255,49 @@ formDonaciones.addEventListener('submit', async (e) => {
 
     // Recopilar todos los datos del formulario
     const datos = {
-        // Paso 1: Donante
+        // Paso 1: Donante (requeridos)
         nombre_donante: document.getElementById('donacion-nombre').value.trim(),
         telefono_donante: document.getElementById('donacion-telefono').value.trim(),
-        email_donante: document.getElementById('donacion-email').value.trim() || null,
 
-        // Paso 2: Donación
+        // Paso 2: Donación (requeridos)
         tipo_donacion: document.getElementById('donacion-tipo').value,
         descripcion: document.getElementById('donacion-descripcion').value.trim(),
-        cantidad_estimada_kg: parseFloat(document.getElementById('donacion-cantidad').value) || null,
-        valor_monetario: parseFloat(document.getElementById('donacion-valor').value) || null,
-
-        // Paso 3: Ubicación
-        direccion_recoleccion: document.getElementById('donacion-direccion').value.trim() || null,
-        barrio_donante: document.getElementById('donacion-barrio').value.trim() || 'No especificado',
-        latitud_donante: datosUbicacionDonacion.latitud,
-        longitud_donante: datosUbicacionDonacion.longitud,
 
         // Estados iniciales
         estado: 'PENDIENTE'
     };
+
+    // Agregar campos opcionales solo si tienen valor
+    const email = document.getElementById('donacion-email').value.trim();
+    if (email) {
+        datos.email_donante = email;
+    }
+
+    const cantidad = document.getElementById('donacion-cantidad').value.trim();
+    if (cantidad && !isNaN(parseFloat(cantidad))) {
+        datos.cantidad_estimada_kg = parseFloat(cantidad);
+    }
+
+    const valor = document.getElementById('donacion-valor').value.trim();
+    if (valor && !isNaN(parseFloat(valor))) {
+        datos.valor_monetario = parseFloat(valor);
+    }
+
+    const direccion = document.getElementById('donacion-direccion').value.trim();
+    if (direccion) {
+        datos.direccion_recoleccion = direccion;
+    }
+
+    const barrio = document.getElementById('donacion-barrio').value.trim();
+    if (barrio) {
+        datos.barrio_donante = barrio;
+    }
+
+    // Ubicación (opcional)
+    if (datosUbicacionDonacion.latitud && datosUbicacionDonacion.longitud) {
+        datos.latitud_donante = datosUbicacionDonacion.latitud;
+        datos.longitud_donante = datosUbicacionDonacion.longitud;
+    }
 
     // Mostrar indicador de carga
     const btnSubmit = formDonaciones.querySelector('button[type="submit"]');
@@ -282,6 +305,9 @@ formDonaciones.addEventListener('submit', async (e) => {
     btnSubmit.disabled = true;
     btnSubmit.classList.add('loading');
     btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando donación...';
+
+    // Log para debugging
+    console.log('📤 Enviando donación:', datos);
 
     try {
         // Enviar a la API
@@ -294,11 +320,33 @@ formDonaciones.addEventListener('submit', async (e) => {
         });
 
         if (!response.ok) {
+            // Intentar obtener el error completo del backend
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
+            console.error('❌ Error del servidor:', errorData);
+
+            // Construir mensaje de error detallado
+            let errorMsg = `Error ${response.status}`;
+
+            if (errorData.detail) {
+                errorMsg += `: ${errorData.detail}`;
+            } else if (typeof errorData === 'object') {
+                // Si hay errores de campo específicos
+                const errores = Object.entries(errorData)
+                    .map(([campo, mensajes]) => {
+                        const msgs = Array.isArray(mensajes) ? mensajes.join(', ') : mensajes;
+                        return `${campo}: ${msgs}`;
+                    })
+                    .join('\n');
+                errorMsg += `:\n${errores}`;
+            } else {
+                errorMsg += `: ${response.statusText}`;
+            }
+
+            throw new Error(errorMsg);
         }
 
         const resultado = await response.json();
+        console.log('✅ Donación creada:', resultado);
 
         // Preparar mensaje de éxito
         let mensajeExito = `<strong>¡Donación registrada exitosamente!</strong><br>ID: ${resultado.id}`;
