@@ -19,6 +19,14 @@ let currentFilters = {
 
 // ===== INICIALIZACIÓN =====
 document.addEventListener('DOMContentLoaded', function() {
+    function initModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('show');
+        });
+    }
+
+    initModals();
+
     try {
         // Cargar preferencias de accesibilidad
         loadAccessibilityPreferences();
@@ -100,49 +108,7 @@ function initMap() {
     
     map.addLayer(markersLayer);
     
-    // Añadir estilo CSS para clusters
-    addClusterStyles();
-}
 
-// ===== ESTILOS DE CLUSTERS =====
-function addClusterStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .custom-cluster {
-            background: transparent;
-            border: none;
-        }
-        .cluster-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: white;
-            border: 3px solid white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            animation: pulse-cluster 2s ease-in-out infinite;
-        }
-        .cluster-small {
-            background: linear-gradient(135deg, #00d4ff, #0099cc);
-            font-size: 14px;
-        }
-        .cluster-medium {
-            background: linear-gradient(135deg, #ff6b35, #cc5528);
-            font-size: 16px;
-        }
-        .cluster-large {
-            background: linear-gradient(135deg, #ffb300, #f57c00);
-            font-size: 18px;
-        }
-        @keyframes pulse-cluster {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 // ===== CARGAR COMEDORES DESDE API =====
@@ -793,18 +759,10 @@ function setupKeyboardNavigation() {
 // ===== TOGGLE SIDEBAR =====
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    const mainContent = document.querySelector('.main-content');
-    
-    sidebar.classList.toggle('collapsed');
-    
-    if (sidebar.classList.contains('collapsed')) {
-        mainContent.classList.add('full');
-    } else {
-        mainContent.classList.remove('full');
-    }
+    sidebar.classList.toggle('show');
     
     // Invalidar tamaño del mapa para que se ajuste
-    setTimeout(() => map.invalidateSize(), 400);
+    setTimeout(() => map.invalidateSize(), 300); // 300ms es la duración de la transición
 }
 
 // ===== OBTENER UBICACIÓN DEL USUARIO =====

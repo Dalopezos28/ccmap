@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+{% endblock %}
+
 {% block title %}Mapa de Comedores Comunitarios - Cali{% endblock %}
 
 {% block content %}
@@ -212,10 +216,8 @@
 
 <!-- Modal de Comedor -->
 <div id="modal-comedor" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" id="btn-close-modal">
-            <i class="fas fa-times"></i>
-        </button>
+    <div class="modal-content large">
+        <button class="modal-close" id="btn-close-modal" aria-label="Cerrar modal"><i class="fas fa-times"></i></button>
         
         <div class="modal-body">
             <div class="loader-small" id="modal-loader">
@@ -223,138 +225,70 @@
             </div>
             
             <div id="modal-content-body" style="display: none;">
-                <!-- Imagen -->
-                <div class="modal-image" id="modal-image">
-                    <img src="" alt="" id="modal-foto">
-                    <div class="modal-badge" id="modal-estado-badge"></div>
-                    <div class="modal-badge modal-badge-precio" id="modal-precio-badge"></div>
-                    <div class="modal-badge modal-badge-cupos" id="modal-cupos-badge"></div>
-                </div>
-                
-                <!-- Información -->
-                <div class="modal-info">
-                    <h2 id="modal-nombre"></h2>
-                    <div class="modal-rating" id="modal-rating"></div>
-                    
-                    <!-- Detalles -->
-                    <div class="modal-details">
-                        <div class="detail-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <div>
-                                <strong>Dirección</strong>
-                                <p id="modal-direccion"></p>
+                <div class="modal-grid-layout">
+                    <!-- Columna Principal -->
+                    <div class="modal-main-content">
+                        <div class="modal-header">
+                            <h2 id="modal-nombre"></h2>
+                            <div class="status-badges">
+                                <span class="badge" id="modal-estado-badge"></span>
+                                <span class="badge" id="modal-precio-badge"></span>
+                                <span class="badge" id="modal-cupos-badge"></span>
                             </div>
+                            <div class="modal-rating" id="modal-rating"></div>
                         </div>
-                        
-                        <div class="detail-item">
-                            <i class="fas fa-clock"></i>
-                            <div>
-                                <strong>Horario</strong>
-                                <p id="modal-horario"></p>
-                            </div>
+
+                        <div class="action-buttons">
+                            <a id="btn-como-llegar" class="btn btn-primary" target="_blank" rel="noopener"><i class="fas fa-directions"></i> Cómo Llegar</a>
+                            <a id="btn-llamar" class="btn btn-secondary" href="tel:"><i class="fas fa-phone-alt"></i> Llamar</a>
+                            <a id="btn-whatsapp" class="btn btn-secondary" target="_blank" rel="noopener" style="display: none;"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                            <button id="btn-compartir" class="btn btn-secondary"><i class="fas fa-share-alt"></i> Compartir</button>
                         </div>
-                        
-                        <div class="detail-item" id="detail-telefono" style="display: none;">
-                            <i class="fas fa-phone"></i>
-                            <div>
-                                <strong>Teléfono</strong>
-                                <p id="modal-telefono"></p>
-                            </div>
-                        </div>
-                        
-                        <div class="detail-item">
-                            <i class="fas fa-utensils"></i>
-                            <div>
-                                <strong>Tipo de Comida</strong>
-                                <p id="modal-tipo-comida"></p>
-                            </div>
-                        </div>
-                        
-                        <div class="detail-item" id="detail-descripcion" style="display: none;">
-                            <i class="fas fa-info-circle"></i>
-                            <div>
-                                <strong>Descripción</strong>
-                                <p id="modal-descripcion"></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Menú del día -->
-                    <div class="modal-menu" id="modal-menu-container" style="display: none;">
-                        <h3><i class="fas fa-calendar-day"></i> Menú del Día</h3>
-                        <div id="modal-menu"></div>
-                    </div>
-                    
-                    <!-- Comentarios recientes -->
-                    <div class="modal-comentarios" id="modal-comentarios-container" style="display: none;">
-                        <h3><i class="fas fa-comments"></i> Comentarios Recientes</h3>
-                        <div id="modal-comentarios"></div>
-                    </div>
-                    
-                    <!-- Botones de acción prioritarios -->
-                    <div class="modal-actions-priority">
-                        <a id="btn-llamar" class="btn btn-call btn-block" href="tel:">
-                            <i class="fas fa-phone-alt"></i> LLAMAR AHORA
-                        </a>
-                        <a id="btn-whatsapp" class="btn btn-whatsapp btn-block" target="_blank" rel="noopener" style="display: none;">
-                            <i class="fab fa-whatsapp"></i> WhatsApp
-                        </a>
-                    </div>
-                    
-                    <!-- Información de cupos y disponibilidad -->
-                    <div class="info-cupos" id="info-cupos" style="display: none;">
-                        <div class="cupos-header">
-                            <i class="fas fa-users"></i>
-                            <strong>Disponibilidad</strong>
-                        </div>
-                        <div class="cupos-content">
-                            <div class="cupos-item">
-                                <span>Cupos disponibles:</span>
-                                <span id="cupos-numero" class="cupos-valor"></span>
-                            </div>
-                            <div class="cupos-item" id="cola-info" style="display: none;">
-                                <span>Tiempo de espera:</span>
-                                <span id="cola-tiempo" class="cupos-valor"></span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Transporte público -->
-                    <div class="info-transporte" id="info-transporte" style="display: none;">
-                        <h3><i class="fas fa-bus"></i> Cómo Llegar en Transporte Público</h3>
-                        <div class="transporte-content">
-                            <div class="transporte-item">
-                                <i class="fas fa-route"></i>
-                                <div>
-                                    <strong>Rutas disponibles</strong>
-                                    <p id="transporte-rutas"></p>
+
+                        <div class="info-section">
+                            <h3>Detalles</h3>
+                            <div class="details-list">
+                                <div class="detail-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <div>
+                                        <strong>Dirección</strong>
+                                        <p id="modal-direccion"></p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="transporte-item" id="parada-info" style="display: none;">
-                                <i class="fas fa-map-pin"></i>
-                                <div>
-                                    <strong>Parada más cercana</strong>
-                                    <p id="transporte-parada"></p>
-                                    <small id="transporte-distancia"></small>
+                                <div class="detail-item">
+                                    <i class="fas fa-clock"></i>
+                                    <div>
+                                        <strong>Horario</strong>
+                                        <p id="modal-horario"></p>
+                                    </div>
+                                </div>
+                                <div class="detail-item" id="detail-descripcion" style="display: none;">
+                                    <i class="fas fa-info-circle"></i>
+                                    <div>
+                                        <strong>Descripción</strong>
+                                        <p id="modal-descripcion"></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Servicios y accesibilidad -->
-                    <div class="info-servicios" id="info-servicios">
-                        <h3><i class="fas fa-check-circle"></i> Servicios Disponibles</h3>
-                        <div class="servicios-grid" id="servicios-grid"></div>
-                    </div>
-                    
-                    <!-- Acciones -->
-                    <div class="modal-actions">
-                        <a id="btn-como-llegar" class="btn btn-primary" target="_blank" rel="noopener">
-                            <i class="fas fa-directions"></i> Cómo Llegar
-                        </a>
-                        <button id="btn-compartir" class="btn btn-outline">
-                            <i class="fas fa-share-alt"></i> Compartir
-                        </button>
+
+                    <!-- Columna Secundaria -->
+                    <div class="modal-sidebar-content">
+                        <div class="info-section" id="info-servicios">
+                            <h3>Servicios y Accesibilidad</h3>
+                            <ul class="service-list" id="servicios-grid"></ul>
+                        </div>
+
+                        <div class="info-section" id="modal-menu-container" style="display: none;">
+                            <h3>Menú del Día</h3>
+                            <div id="modal-menu"></div>
+                        </div>
+
+                        <div class="info-section" id="modal-comentarios-container" style="display: none;">
+                            <h3>Comentarios Recientes</h3>
+                            <div id="modal-comentarios"></div>
+                        </div>
                     </div>
                 </div>
             </div>

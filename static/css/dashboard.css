@@ -1,0 +1,221 @@
+/* ===============================================
+   Minimal SaaS Dashboard - Estilos
+   =============================================== */
+
+/* 1. Variables y Estilos Globales */
+:root {
+    --bg-main: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --text-primary: #111827;
+    --text-secondary: #6B7280;
+    --border-color: #E5E7EB;
+    --font-sans: 'Inter', sans-serif;
+
+    /* Acentos de color */
+    --color-success: #10B981;
+    --color-success-bg: #F0FDF4;
+    --color-danger: #EF4444;
+    --color-danger-bg: #FEF2F2;
+    --color-warning: #F59E0B;
+    --color-warning-bg: #FFFBEB;
+    --color-info: #3B82F6;
+    --color-info-bg: #EFF6FF;
+
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --border-radius: 0.75rem; /* 12px */
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 2. Layout Principal */
+.dashboard-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.dashboard-header {
+    margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+    font-size: 1.875rem; /* 30px */
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.dashboard-header p {
+    font-size: 1rem; /* 16px */
+    color: var(--text-secondary);
+}
+
+.nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease-in-out;
+}
+
+.nav-back:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+/* 3. Rejilla de Métricas (Cards) */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.metric-card {
+    background-color: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease-in-out;
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.card-title {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.card-icon {
+    font-size: 1.25rem; /* 20px */
+    padding: 0.5rem;
+    border-radius: 9999px;
+}
+
+.metric-card.success .card-icon { color: var(--color-success); background-color: var(--color-success-bg); }
+.metric-card.danger .card-icon { color: var(--color-danger); background-color: var(--color-danger-bg); }
+.metric-card.warning .card-icon { color: var(--color-warning); background-color: var(--color-warning-bg); }
+.metric-card.info .card-icon { color: var(--color-info); background-color: var(--color-info-bg); }
+
+
+.metric-value {
+    font-size: 2.25rem; /* 36px */
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.metric-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem; /* 14px */
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.75rem; /* 12px */
+}
+
+.badge.success { color: var(--color-success); background-color: var(--color-success-bg); }
+.badge.danger { color: var(--color-danger); background-color: var(--color-danger-bg); }
+
+.metric-footer .time {
+    color: var(--text-secondary);
+}
+
+/* 4. Rejilla de Gráficos */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.chart-card {
+    background-color: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.chart-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.chart-card h3 {
+    font-size: 1.125rem; /* 18px */
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+.chart-container.tall {
+    height: 400px;
+}
+
+/* 5. Utilidades y Estados */
+.loading, .error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+}
+
+.loading {
+    color: var(--text-secondary);
+}
+
+.error {
+    background-color: var(--color-danger-bg);
+    color: var(--color-danger);
+}
+
+/* 6. Responsividad */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 1rem;
+    }
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    .dashboard-header h1 {
+        font-size: 1.5rem; /* 24px */
+    }
+}
